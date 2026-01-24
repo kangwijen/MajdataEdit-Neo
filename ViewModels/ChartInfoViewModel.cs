@@ -76,7 +76,7 @@ partial class ChartInfoViewModel : ViewModelBase
         }
         catch (Exception e)
         {
-            Debug.WriteLine(e.Message);
+            Console.WriteLine(e.Message);
         }
     }
 
@@ -91,11 +91,11 @@ partial class ChartInfoViewModel : ViewModelBase
             File.Delete(MaidataDir + "/bg.mp4");
             File.Copy(path, MaidataDir + "/bg.mp4", true);
             //TODO:Make it MessageBox
-            if (new FileInfo(path).Length > 20971520) Debug.WriteLine("File too large. Compress?");
+            if (new FileInfo(path).Length > 20971520) Console.WriteLine("File too large. Compress?");
         }
         catch (Exception e)
         {
-            Debug.WriteLine(e.Message);
+            Console.WriteLine(e.Message);
         }
     }
 }

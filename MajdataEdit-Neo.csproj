@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
@@ -8,6 +8,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
   </PropertyGroup>
 
   <ItemGroup>
@@ -19,6 +20,17 @@
     <Compile Remove="Modules\**" />
     <EmbeddedResource Remove="Modules\**" />
     <None Remove="Modules\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaXaml Remove="MajdataEdit-master\**" />
+    <Compile Remove="MajdataEdit-master\**" />
+    <EmbeddedResource Remove="MajdataEdit-master\**" />
+    <None Remove="MajdataEdit-master\**" />
+    <AvaloniaXaml Remove="MajdataView-master\**" />
+    <Compile Remove="MajdataView-master\**" />
+    <EmbeddedResource Remove="MajdataView-master\**" />
+    <None Remove="MajdataView-master\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,7 +50,7 @@
     <PackageReference Include="Lingfeng-bbben.MajSimai" Version="1.14.0" />
     <PackageReference Include="ManagedBass" Version="3.1.1" />
     <PackageReference Include="MessageBox.Avalonia" Version="3.2.0" />
-    <PackageReference Include="websocketsharp.core" Version="1.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
@@ -58,7 +70,6 @@
 
   <ItemGroup>
     <Folder Include="Assets\Modules\" />
-    <Folder Include="Models\MajWs\" />
   </ItemGroup>
 
   <ItemGroup>

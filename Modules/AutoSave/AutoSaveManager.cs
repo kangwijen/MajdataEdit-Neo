@@ -150,7 +150,7 @@ public sealed class AutoSaveManager
             foreach (var saver in _autoSavers)
                 saver.DoAutoSave();
         }
-        Debug.WriteLine("Module: AutoSave executed");
+        Console.WriteLine("Module: AutoSave executed");
         Task.Run(() => OnAutoSaveExecuted?.Invoke(this));
         // 标记变更已被保存
         _isFileChanged = false;

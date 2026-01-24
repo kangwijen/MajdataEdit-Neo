@@ -18,7 +18,6 @@ using System.Collections.ObjectModel;
 using MsBox.Avalonia;
 using AvaloniaEdit;
 using MsBox.Avalonia.Enums;
-using MajdataPlay.View.Types;
 using MajdataEdit_Neo.Utils;
 using Avalonia.Threading;
 using MajdataEdit_Neo.Modules.AutoSave;
@@ -97,7 +96,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             if (CurrentSimaiFile is null || CurrentSimaiFile.Charts[SelectedDifficulty] is null) return;
             CurrentSimaiFile.Charts[SelectedDifficulty].Level = value;
-            Debug.WriteLine(SelectedDifficulty);
+            Console.WriteLine(SelectedDifficulty);
             SetProperty(ref _level[SelectedDifficulty], value);
             OnPropertyChanged(nameof(CurrentSimaiFile));
         }
@@ -160,17 +159,11 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Debug.WriteLine(ex);
+            Console.WriteLine(ex);
         }
     }
 
-    public bool IsConnected
-    {
-        get
-        {
-            return _playerConnection.IsConnected;
-        }
-    }
+    public bool IsConnected => _viewerConnection.IsViewerRunning;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FumenDocument))]
@@ -205,6 +198,9 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool isAnimated = true;
 
+    [ObservableProperty]
+    private bool _isPlaying = false;
+
     bool _isBackToStartOnPlayStop = false;
     bool _isUpdatingAutoSaveContext = false;
     
@@ -232,7 +228,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     TextEditor? _textEditor;
 
-    PlayerConnection _playerConnection = new PlayerConnection();
+    ViewerConnection _viewerConnection = new ViewerConnection();
     SimaiParser _simaiParser = new SimaiParser();
     TrackReader _trackReader = new TrackReader();
     InternalAutoSaveContext _internalLocalAutoSaveContext = new();
@@ -245,11 +241,6 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel()
     {
         PropertyChanged += MainWindowViewModel_PropertyChanged;
-        _playerConnection.OnPlayStarted += _playerConnection_OnPlayStarted;
-        _playerConnection.OnPlayStopped += _playerConnection_OnPlayStopped;
-        _playerConnection.OnLoadRequired += _playerConnection_OnLoadRequired;
-        _playerConnection.OnLoadFinished += _playerConnection_OnLoadFinished;
-        _playerConnection.OnDisconnected += _playerConnection_OnDisconnected;
         _internalLocalAutoSaveContext = new(_internalAutoSaveContentProvider);
         _internalGlobalAutoSaveContext = new InternalAutoSaveContext(_internalAutoSaveContentProvider);
         AutoSaveManager.Initialize(_internalLocalAutoSaveContext, _internalGlobalAutoSaveContext);
@@ -262,11 +253,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public async Task<bool> ConnectToPlayerAsync()
     {
-        if (!await _playerConnection.ConnectAsync())
-        {
-            OnPropertyChanged(nameof(IsConnected));
-            return false;
-        }
+        // HTTP connection doesn't need explicit connect
         OnPropertyChanged(nameof(IsConnected));
         return true;
     }
@@ -289,7 +276,7 @@ public partial class MainWindowViewModel : ViewModelBase
         var time = TrackTime - delta * 0.2 * TrackZoomLevel;
         if (time < 0) time = 0;
         else if (time > SongTrackInfo.Length) time = SongTrackInfo.Length;
-        if(_playerConnection.IsConnected)
+        if(_viewerConnection.IsViewerRunning)
         {
             Stop(false);
         }
@@ -327,7 +314,7 @@ public partial class MainWindowViewModel : ViewModelBase
         CaretTime = nearestNote.Timing;
         if (IsFollowCursor|| setTrackTime) {
             //By pass Ctrl+Click if it's playing
-            if (_playerConnection.ViewSummary.State == ViewStatus.Playing) return;
+            if (IsPlaying) return;
             Stop(false);
             TrackTime = CaretTime + Offset;
         }
@@ -364,7 +351,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         catch (Exception e)
         {
-            Debug.WriteLine(e.Message);
+            Console.WriteLine(e.Message);
         }
     }
     public async Task OpenFile()
@@ -390,7 +377,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         catch (Exception e)
         {
-            Debug.WriteLine(e.Message);
+            Console.WriteLine(e.Message);
         }
     }
 
@@ -410,19 +397,15 @@ public partial class MainWindowViewModel : ViewModelBase
             if (!File.Exists(pvPath)) pvPath = _maidataDir + "/bg.mp4";
             if (!File.Exists(pvPath)) pvPath = "";
 
-            if (!await CheckPlayerConnectionAndReconnect())
+            if (!await CheckViewerConnection())
             {
                 return;
             }
-            await _playerConnection.LoadAsync(trackPath, bgPath, pvPath);
+            // HTTP-based viewer doesn't need explicit loading - chart data is sent with play command
         }
         catch
         {
         }
-    }
-    private void _playerConnection_OnLoadFinished(object? sender, EventArgs e)
-    {
-        IsPlayControlEnabled = true;
     }
 
     //return: isCancel
@@ -526,25 +509,61 @@ public partial class MainWindowViewModel : ViewModelBase
         try
         {
             IsPlayControlEnabled = false;
-            if (!await CheckPlayerConnectionAndReconnect(true))
+            if (!await CheckViewerConnection())
             {
                 return;
             }
-            switch (_playerConnection.ViewSummary.State)
+
+            // For HTTP-based communication, we don't track state like WebSocket
+            // Just send the appropriate command based on current playing state
+            if (IsPlaying)
             {
-                case ViewStatus.Playing:
-                    await _playerConnection.PauseAsync();
-                    return;
-                case ViewStatus.Paused:
-                    await _playerConnection.ResumeAsync();
-                    playStartTime = TrackTime;
-                    return;
+                await _viewerConnection.PausePlaybackAsync();
+                OnPlayStopped();
+                return;
             }
+
             shouldRecoverPlayControl = false;
             playStartTime = TrackTime;
             _textEditor = textEditor;
-            if (CurrentSimaiFile?.RawCharts[SelectedDifficulty] != null)
-                await _playerConnection.ParseAndPlayAsync(TrackTime, Offset, CurrentSimaiFile.RawCharts[SelectedDifficulty], 1);
+
+            // Convert chart to Majson format and send to viewer
+            if (CurrentSimaiFile != null)
+            {
+                try
+                {
+                    var majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
+                    System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", $"MainWindow: Created Majson with {majson.timingList.Count} timing points\n");
+                    ChartSerializer.SaveMajdataJson(majson, _maidataDir);
+                }
+                catch (Exception ex)
+                {
+                    System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", $"MainWindow: Chart serialization failed: {ex.Message}\n{ex.StackTrace}\n");
+                    // Create a minimal majson for testing
+                    var fallbackMajson = new Models.Majson
+                    {
+                        title = CurrentSimaiFile.Title ?? "Test",
+                        artist = CurrentSimaiFile.Artist ?? "Test",
+                        timingList = new System.Collections.Generic.List<Models.SimaiTimingPoint>()
+                    };
+                    ChartSerializer.SaveMajdataJson(fallbackMajson, _maidataDir);
+                }
+
+                var jsonPath = System.IO.Path.Combine(_maidataDir, "majdata.json");
+                await _viewerConnection.StartPlaybackAsync(
+                    jsonPath,
+                    DateTime.Now,
+                    (float)(TrackTime + Offset),
+                    7.5f, // playSpeed
+                    7.5f, // touchSpeed
+                    1.0f, // audioSpeed
+                    0.6f, // backgroundCover
+                    EditorComboIndicator.None, // comboStatusType
+                    false, // smoothSlideAnime
+                    EditorPlayMethod.Classic); // editorPlayMethod
+
+                OnPlayStarted();
+            }
         }
         finally
         {
@@ -559,27 +578,61 @@ public partial class MainWindowViewModel : ViewModelBase
         try
         {
             IsPlayControlEnabled = false;
-            if (!await CheckPlayerConnectionAndReconnect(true))
+            if (!await CheckViewerConnection())
             {
                 TrackTime = playStartTime;
                 return;
             }
-            switch (_playerConnection.ViewSummary.State)
+
+            if (IsPlaying)
             {
-                case ViewStatus.Playing:
-                    _isBackToStartOnPlayStop = true;
-                    await _playerConnection.StopAsync();
-                    return;
-                case ViewStatus.Paused:
-                    await _playerConnection.ResumeAsync();
-                    playStartTime = TrackTime;
-                    return;
+                _isBackToStartOnPlayStop = true;
+                await _viewerConnection.StopPlaybackAsync();
+                OnPlayStopped();
+                return;
             }
+
             shouldRecoverPlayControl = false;
             playStartTime = TrackTime;
             _textEditor = textEditor;
-            if (CurrentSimaiFile?.RawCharts[SelectedDifficulty] != null)
-                await _playerConnection.ParseAndPlayAsync(TrackTime, Offset, CurrentSimaiFile.RawCharts[SelectedDifficulty], 1);
+
+            // Convert chart to Majson format and send to viewer
+            if (CurrentSimaiFile != null)
+            {
+                try
+                {
+                    var majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
+                    System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", $"MainWindow: Created Majson with {majson.timingList.Count} timing points\n");
+                    ChartSerializer.SaveMajdataJson(majson, _maidataDir);
+                }
+                catch (Exception ex)
+                {
+                    System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", $"MainWindow: Chart serialization failed: {ex.Message}\n{ex.StackTrace}\n");
+                    // Create a minimal majson for testing
+                    var fallbackMajson = new Models.Majson
+                    {
+                        title = CurrentSimaiFile.Title ?? "Test",
+                        artist = CurrentSimaiFile.Artist ?? "Test",
+                        timingList = new System.Collections.Generic.List<Models.SimaiTimingPoint>()
+                    };
+                    ChartSerializer.SaveMajdataJson(fallbackMajson, _maidataDir);
+                }
+
+                var jsonPath = System.IO.Path.Combine(_maidataDir, "majdata.json");
+                await _viewerConnection.StartPlaybackAsync(
+                    jsonPath,
+                    DateTime.Now,
+                    (float)(TrackTime + Offset),
+                    7.5f, // playSpeed
+                    7.5f, // touchSpeed
+                    1.0f, // audioSpeed
+                    0.6f, // backgroundCover
+                    EditorComboIndicator.None, // comboStatusType
+                    false, // smoothSlideAnime
+                    EditorPlayMethod.Classic); // editorPlayMethod
+
+                OnPlayStarted();
+            }
         }
         finally
         {
@@ -588,8 +641,9 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
     
-    private async void _playerConnection_OnPlayStarted(object sender, MajWsResponseType e)
+    private async void OnPlayStarted()
     {
+        IsPlaying = true;
         IsPlayControlEnabled = true;
         await Task.Run(async () =>
         {
@@ -597,10 +651,20 @@ public partial class MainWindowViewModel : ViewModelBase
             watch.Start();
             var timeA = watch.Elapsed;
             IsAnimated = false;
-            while (_playerConnection.ViewSummary.State == ViewStatus.Playing && 
-                    _playerConnection.IsConnected)
+            while (IsPlaying && _viewerConnection.IsViewerRunning)
             {
                 TrackTime = watch.ElapsedMilliseconds / 1000d + playStartTime;
+
+                // Stop playback if we've reached the end of the song
+                if (SongTrackInfo != null && TrackTime >= SongTrackInfo.Length)
+                {
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        OnPlayStopped();
+                    });
+                    break;
+                }
+
                 if (IsFollowCursor && CurrentSimaiChart != null && _textEditor != null)
                 {
                     var nearestNote = CurrentSimaiChart.CommaTimings.MinBy(o => Math.Abs(o.Timing + Offset - TrackTime));
@@ -626,27 +690,14 @@ public partial class MainWindowViewModel : ViewModelBase
         try
         {
             IsPlayControlEnabled = false;
-            if (!await CheckPlayerConnectionAndReconnect())
+            if (!await CheckViewerConnection())
             {
                 if (isBackToStart)
                     TrackTime = playStartTime;
                 return;
             }
-            switch (_playerConnection.ViewSummary.State)
-            {
-                case ViewStatus.Loaded:
-                    if (isBackToStart)
-                        break;
-                    else
-                        return;
-                case ViewStatus.Ready:
-                case ViewStatus.Playing:
-                case ViewStatus.Paused:
-                    break;
-                default:
-                    return;
-            }
-            await _playerConnection.StopAsync();
+            // For HTTP-based communication, we can always send stop command
+            await _viewerConnection.StopPlaybackAsync();
             
         }
         finally
@@ -656,39 +707,37 @@ public partial class MainWindowViewModel : ViewModelBase
         
     }
 
-    private async void _playerConnection_OnPlayStopped(object sender, MajWsResponseType e)
+    private async void OnPlayStopped()
     {
         await Task.Delay(32); // Wait the OnPlayStarted Loop to end
+        IsPlaying = false;
         if (_isBackToStartOnPlayStop)
             TrackTime = playStartTime;
         IsPlayControlEnabled = true;
     }
 
-    private async void _playerConnection_OnLoadRequired(object? sender, EventArgs e)
+    private async void OnLoadRequired()
     {
         await EditorLoad();
     }
-    private void _playerConnection_OnDisconnected(object? sender, EventArgs e)
-    {
-        OnPropertyChanged(nameof(IsConnected));
-    }
 
-    async Task<bool> CheckPlayerConnectionAndReconnect(bool showMessageBox = false)
+    async Task<bool> CheckViewerConnection()
     {
-        //TODO: 改成弱提示，比如状态指示灯
-        
-        if (!_playerConnection.IsConnected)
+        // Check if MajdataView is running, launch if needed
+        if (!_viewerConnection.IsViewerRunning)
         {
-            if (!await _playerConnection.ConnectAsync())
+            if (!_viewerConnection.LaunchViewerIfNeeded())
             {
+                // Failed to launch MajdataView
                 OnPropertyChanged(nameof(IsConnected));
                 return false;
             }
-            OnPropertyChanged(nameof(IsConnected));
-            return false;
         }
+
+        // For HTTP connection, we don't need to explicitly connect like WebSocket
+        // The connection check is implicit in each HTTP request
         OnPropertyChanged(nameof(IsConnected));
-        return true;
+        return _viewerConnection.IsViewerRunning;
     }
     public void SeekToDocPos(Point position, TextEditor editor)
     {
@@ -705,10 +754,10 @@ public partial class MainWindowViewModel : ViewModelBase
     }
     private async void MainWindowViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        //Debug.WriteLine(e.PropertyName);
+        //Console.WriteLine(e.PropertyName);
         if (e.PropertyName == nameof(CurrentSimaiFile))
         {
-            Debug.WriteLine("SimaiFileChanged");
+            Console.WriteLine("SimaiFileChanged");
             Stop(false);
             lock(_fumenContentChangedSyncLock)
             {
@@ -736,7 +785,7 @@ public partial class MainWindowViewModel : ViewModelBase
             }
             catch (Exception ex)
             {
-                Debug.WriteLine(ex);
+                Console.WriteLine(ex);
             }
             finally
             {

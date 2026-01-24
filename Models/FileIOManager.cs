@@ -44,7 +44,7 @@ class FileIOManager
             AllowMultiple = false
         });
 
-        if (files.Count == 0) Debug.WriteLine("FileSelection Canceled");
+        if (files.Count == 0) Console.WriteLine("FileSelection Canceled");
 
         return files?.Count >= 1 ? files[0] : null;
     }
