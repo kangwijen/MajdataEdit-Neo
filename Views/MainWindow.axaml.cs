@@ -20,29 +20,37 @@ namespace MajdataEdit_Neo.Views;
 
 public partial class MainWindow : Window
 {
-    MainWindowViewModel viewModel => (MainWindowViewModel)DataContext;
-    TextEditor textEditor;
-    SimaiVisualizerControl simaiVisual;
+    MainWindowViewModel? viewModel => (MainWindowViewModel?)DataContext;
+    TextEditor? textEditor;
+    SimaiVisualizerControl? simaiVisual;
     public MainWindow()
     {
         InitializeComponent();
         //setup editor
         textEditor = this.FindControl<TextEditor>("Editor");
-        textEditor.TextChanged += TextEditor_TextChanged;
-        textEditor.TextArea.Caret.PositionChanged += Caret_PositionChanged;
-        textEditor.Options.HighlightCurrentLine = true;
-        textEditor.Options.EnableTextDragDrop = true;
-        var _registryOptions = new RegistryOptions(ThemeName.DarkPlus);
-        var _install = TextMate.InstallTextMate(textEditor, _registryOptions);
-        var registry = new Registry(_install.RegistryOptions);
-        _install.SetGrammarFile(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "simai.tmLanguage.json"));
+        if (textEditor != null)
+        {
+            textEditor.TextChanged += TextEditor_TextChanged;
+            textEditor.TextArea.Caret.PositionChanged += Caret_PositionChanged;
+            textEditor.Options.HighlightCurrentLine = true;
+            textEditor.Options.EnableTextDragDrop = true;
+            var _registryOptions = new RegistryOptions(ThemeName.DarkPlus);
+            var _install = TextMate.InstallTextMate(textEditor, _registryOptions);
+            var registry = new Registry(_install.RegistryOptions);
+            _install.SetGrammarFile(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "simai.tmLanguage.json"));
+        }
         //setup visualizer
         simaiVisual = this.FindControl<SimaiVisualizerControl>("SimaiVisual");
-        simaiVisual.PointerWheelChanged += SimaiVisual_PointerWheelChanged;
-        simaiVisual.PointerMoved += SimaiVisual_PointerMoved;
+        if (simaiVisual != null)
+        {
+            simaiVisual.PointerWheelChanged += SimaiVisual_PointerWheelChanged;
+            simaiVisual.PointerMoved += SimaiVisual_PointerMoved;
+        }
         //zoom buttons
-        this.FindControl<Button>("ZoomIn").Click += ZoomIn_Click;
-        this.FindControl<Button>("ZoomOut").Click += ZoomOut_Click;
+        var zoomIn = this.FindControl<Button>("ZoomIn");
+        if (zoomIn != null) zoomIn.Click += ZoomIn_Click;
+        var zoomOut = this.FindControl<Button>("ZoomOut");
+        if (zoomOut != null) zoomOut.Click += ZoomOut_Click;
         //this window
         this.KeyDown += MainWindow_KeyDown;
         this.KeyUp += MainWindow_KeyUp;
@@ -53,7 +61,8 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Loaded(object? sender, RoutedEventArgs e)
     {
-        await viewModel.ConnectToPlayerAsync();
+        if (viewModel != null)
+            await viewModel.ConnectToPlayerAsync();
     }
 
     bool haveAsked = false;
@@ -62,7 +71,7 @@ public partial class MainWindow : Window
         if (haveAsked) return;
         e.Cancel = true;
         haveAsked = true;
-        if (!await viewModel.AskSave()) this.Close();
+        if (viewModel != null && !await viewModel.AskSave()) this.Close();
         else haveAsked = false;
     }
 
@@ -85,14 +94,18 @@ public partial class MainWindow : Window
 
     private void Caret_PositionChanged(object? sender, System.EventArgs e)
     {
-        var seek = textEditor.SelectionStart;
-        viewModel.SetCaretTime(seek, isCtrlKeyDown);
+        if (textEditor != null && viewModel != null)
+        {
+            var seek = textEditor.SelectionStart;
+            viewModel.SetCaretTime(seek, isCtrlKeyDown);
+        }
     }
 
     static double? lastX = null;
     private void SimaiVisual_PointerMoved(object? sender, Avalonia.Input.PointerEventArgs e)
     {
-        var point = e.GetCurrentPoint(sender as SimaiVisualizerControl);
+        if (viewModel == null || textEditor == null || sender is not SimaiVisualizerControl control) return;
+        var point = e.GetCurrentPoint(control);
         var x = point.Position.X;
         viewModel.IsPointerPressedSimaiVisual = point.Properties.IsLeftButtonPressed;
         if (lastX is null) lastX = x;
@@ -100,22 +113,25 @@ public partial class MainWindow : Window
         if (point.Properties.IsLeftButtonPressed)
         {
             var docseek = viewModel.SlideTrackTime((float)delta*10f/Width);
-            viewModel.SeekToDocPos(docseek,textEditor);
+            viewModel.SeekToDocPos(docseek, textEditor);
         }
         lastX = x;
     }
 
     private void ZoomIn_Click(object? sender, RoutedEventArgs e)
     {
-        viewModel.SlideZoomLevel(-0.3f);
+        if (viewModel != null)
+            viewModel.SlideZoomLevel(-0.3f);
     }
     private void ZoomOut_Click(object? sender, RoutedEventArgs e)
     {
-        viewModel.SlideZoomLevel(0.3f);
+        if (viewModel != null)
+            viewModel.SlideZoomLevel(0.3f);
     }
 
     private void SimaiVisual_PointerWheelChanged(object? sender, Avalonia.Input.PointerWheelEventArgs e)
     {
+        if (viewModel == null || textEditor == null) return;
         if (isCtrlKeyDown)
         {
             viewModel.SlideZoomLevel(-0.3f * (float)e.Delta.Y);
@@ -123,20 +139,22 @@ public partial class MainWindow : Window
         else
         {
             var docseek = viewModel.SlideTrackTime(e.Delta.Y);
-            viewModel.SeekToDocPos(docseek,textEditor);
+            viewModel.SeekToDocPos(docseek, textEditor);
         }
     }
 
     private async void TextEditor_TextChanged(object? sender, System.EventArgs e)
     {
+        if (viewModel == null || textEditor == null || sender is not TextEditor editor) return;
         //TODO: add timer
-        await viewModel.SetFumenContent(((TextEditor)sender).Text);
+        await viewModel.SetFumenContent(editor.Text);
         var seek = textEditor.SelectionStart;
-        viewModel.SetCaretTime(seek,false);
+        viewModel.SetCaretTime(seek, false);
     }
 
     private async void FindReplace_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
     {
+        if (textEditor == null) return;
         if (textEditor.SearchPanel.IsOpened)
             textEditor.SearchPanel.Close();
         else

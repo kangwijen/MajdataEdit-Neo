@@ -211,13 +211,5 @@
       <Button IsVisible="False" HotKey="Ctrl+O" Command="{Binding OpenFile}"/>
       <Button IsVisible="False" IsEnabled="{Binding IsPlayControlEnabled}" HotKey="Ctrl+Shift+C" Command="{Binding PlayStop}" CommandParameter="{Binding #Editor}"/>
     </Grid>
-    <DockPanel >
-      <Image DockPanel.Dock="Right"
-             HorizontalAlignment="Right"
-             Margin="0 0 -30 100" ZIndex="-9999"
-             Opacity="0.5"
-             Source="avares://MajdataEdit-Neo/Assets/xxlb.png"></Image>
-    </DockPanel>
-
   </Panel>
 </Window>

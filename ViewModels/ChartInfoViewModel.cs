@@ -1,4 +1,4 @@
-﻿using Avalonia.Media.Imaging;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -37,7 +37,7 @@ partial class ChartInfoViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Cover))]
-    private string maidataDir;
+    private string maidataDir = string.Empty;
     public ChartInfoViewModel()
     {
         SimaiCommands = new();

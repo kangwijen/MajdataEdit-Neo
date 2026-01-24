@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
@@ -155,7 +155,7 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CurrentSimaiFile));
         try
         {
-            CurrentSimaiChart = await _simaiParser.ParseChartAsync(null, null, content);
+            CurrentSimaiChart = await _simaiParser.ParseChartAsync(string.Empty, string.Empty, content);
             //IsSaved = true;
         }
         catch (Exception ex)
@@ -230,7 +230,7 @@ public partial class MainWindowViewModel : ViewModelBase
     };
     readonly Lock _fumenContentChangedSyncLock = new();
 
-    TextEditor _textEditor;
+    TextEditor? _textEditor;
 
     PlayerConnection _playerConnection = new PlayerConnection();
     SimaiParser _simaiParser = new SimaiParser();
@@ -299,7 +299,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (nearestNote is null) return new Point();
         return new Point(nearestNote.RawTextPositionX, nearestNote.RawTextPositionY);
     }
-    public async void SetCaretTime(int rawPostion, bool setTrackTime)
+    public void SetCaretTime(int rawPostion, bool setTrackTime)
     {
         if (CurrentSimaiChart is null) return;
         var timings = CurrentSimaiChart.CommaTimings.ToArray();
@@ -343,14 +343,18 @@ public partial class MainWindowViewModel : ViewModelBase
             var maidataPath = file.TryGetLocalPath();
             if (maidataPath is null) return;
             var fileInfo = new FileInfo(maidataPath);
+            if (fileInfo.Directory == null) return;
             _maidataDir = fileInfo.Directory.FullName;
             if(File.Exists( _maidataDir+"/maidata.txt"))
             {
                 var mainWindow = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
-                await MessageBoxManager.GetMessageBoxStandard(
-                "Error", "Maidata Already Exist",
-                MsBox.Avalonia.Enums.ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Error)
-                .ShowWindowDialogAsync(mainWindow.MainWindow);
+                if (mainWindow?.MainWindow != null)
+                {
+                    await MessageBoxManager.GetMessageBoxStandard(
+                    "Error", "Maidata Already Exist",
+                    MsBox.Avalonia.Enums.ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Error)
+                    .ShowWindowDialogAsync(mainWindow.MainWindow);
+                }
                 return;
             }
             CurrentSimaiFile = SimaiFile.Empty("Set Title", "Set Artist");
@@ -374,6 +378,7 @@ public partial class MainWindowViewModel : ViewModelBase
             if (maidataPath is null) return;
             CurrentSimaiFile = await _simaiParser.ParseAsync(maidataPath);
             var fileInfo = new FileInfo(maidataPath);
+            if (fileInfo.Directory == null) return;
             _maidataDir = fileInfo.Directory.FullName;
             SongTrackInfo = _trackReader.ReadTrack(_maidataDir);
             //IsFumenContextChanged = false;
@@ -485,10 +490,10 @@ public partial class MainWindowViewModel : ViewModelBase
         };
         await window.ShowDialog(mainWindow.MainWindow);
         var datacontext = window.DataContext as ChartInfoViewModel;
-        if (datacontext is null) throw new Exception("Wtf");
-        CurrentSimaiFile.Title = datacontext.Title;
-        CurrentSimaiFile.Artist = datacontext.Artist;
-        CurrentSimaiFile.Commands = datacontext.SimaiCommands.ToArray();
+        if (datacontext is null || CurrentSimaiFile is null) throw new Exception("Wtf");
+        CurrentSimaiFile.Title = datacontext.Title ?? string.Empty;
+        CurrentSimaiFile.Artist = datacontext.Artist ?? string.Empty;
+        CurrentSimaiFile.Commands = datacontext.SimaiCommands?.ToArray() ?? Array.Empty<SimaiCommand>();
         await Task.Delay(100);
         OnPropertyChanged(nameof(CurrentSimaiFile));
         await EditorLoad();
@@ -538,7 +543,8 @@ public partial class MainWindowViewModel : ViewModelBase
             shouldRecoverPlayControl = false;
             playStartTime = TrackTime;
             _textEditor = textEditor;
-            await _playerConnection.ParseAndPlayAsync(TrackTime, Offset, CurrentSimaiFile.RawCharts[SelectedDifficulty], 1);
+            if (CurrentSimaiFile?.RawCharts[SelectedDifficulty] != null)
+                await _playerConnection.ParseAndPlayAsync(TrackTime, Offset, CurrentSimaiFile.RawCharts[SelectedDifficulty], 1);
         }
         finally
         {
@@ -572,7 +578,8 @@ public partial class MainWindowViewModel : ViewModelBase
             shouldRecoverPlayControl = false;
             playStartTime = TrackTime;
             _textEditor = textEditor;
-            await _playerConnection.ParseAndPlayAsync(TrackTime, Offset, CurrentSimaiFile.RawCharts[SelectedDifficulty], 1);
+            if (CurrentSimaiFile?.RawCharts[SelectedDifficulty] != null)
+                await _playerConnection.ParseAndPlayAsync(TrackTime, Offset, CurrentSimaiFile.RawCharts[SelectedDifficulty], 1);
         }
         finally
         {
@@ -594,7 +601,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     _playerConnection.IsConnected)
             {
                 TrackTime = watch.ElapsedMilliseconds / 1000d + playStartTime;
-                if (IsFollowCursor)
+                if (IsFollowCursor && CurrentSimaiChart != null && _textEditor != null)
                 {
                     var nearestNote = CurrentSimaiChart.CommaTimings.MinBy(o => Math.Abs(o.Timing + Offset - TrackTime));
                     if (nearestNote is null) continue;
@@ -602,7 +609,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     var point = new Point(nearestNote.RawTextPositionX, nearestNote.RawTextPositionY);
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
-                        SeekToDocPos(point, _textEditor);
+                        SeekToDocPos(point, _textEditor!);
                     });
 
                 }

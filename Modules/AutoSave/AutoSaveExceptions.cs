@@ -1,4 +1,4 @@
-﻿/*
+/*
   Copyright (c) Moying-moe All rights reserved. Licensed under the MIT license.
   See LICENSE in the project root for license information.
 */
@@ -22,9 +22,11 @@ internal class AutoSaveIndexNotReadyException : Exception
     {
     }
 
+#pragma warning disable SYSLIB0051
     protected AutoSaveIndexNotReadyException(SerializationInfo info, StreamingContext context) : base(info, context)
     {
     }
+#pragma warning restore SYSLIB0051
 
     public override string Message => base.Message;
 }
@@ -43,9 +45,11 @@ internal class LocalDirNotOpenYetException : Exception
     {
     }
 
+#pragma warning disable SYSLIB0051
     protected LocalDirNotOpenYetException(SerializationInfo info, StreamingContext context) : base(info, context)
     {
     }
+#pragma warning restore SYSLIB0051
 
     public override string Message => base.Message;
 }

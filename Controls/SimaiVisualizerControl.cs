@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -36,14 +36,14 @@ class SimaiVisualizerControl : Control
         set { SetAndRaise(TimeProperty, ref _time, value); }
     }
 
-    public static readonly DirectProperty<SimaiVisualizerControl, TrackInfo> TrackIfProperty =
-    AvaloniaProperty.RegisterDirect<SimaiVisualizerControl, TrackInfo>(
+    public static readonly DirectProperty<SimaiVisualizerControl, TrackInfo?> TrackIfProperty =
+    AvaloniaProperty.RegisterDirect<SimaiVisualizerControl, TrackInfo?>(
         nameof(TrackIf),
         o => o.TrackIf,
         (o, v) => o.TrackIf = v,
         defaultBindingMode: Avalonia.Data.BindingMode.OneWay);
-    private TrackInfo _track;
-    public TrackInfo TrackIf
+    private TrackInfo? _track;
+    public TrackInfo? TrackIf
     {
         get { return _track; }
         set { SetAndRaise(TrackIfProperty, ref _track, value); }
@@ -62,14 +62,14 @@ class SimaiVisualizerControl : Control
         set { SetAndRaise(ZoomLevelProperty, ref _zoomLevel, value); }
     }
 
-    public static readonly DirectProperty<SimaiVisualizerControl, SimaiChart> SimaiChartProperty =
-    AvaloniaProperty.RegisterDirect<SimaiVisualizerControl, SimaiChart>(
+    public static readonly DirectProperty<SimaiVisualizerControl, SimaiChart?> SimaiChartProperty =
+    AvaloniaProperty.RegisterDirect<SimaiVisualizerControl, SimaiChart?>(
         nameof(SimaiChart),
         o => o.SimaiChart,
         (o, v) => o.SimaiChart = v,
         defaultBindingMode: Avalonia.Data.BindingMode.OneWay);
-    private SimaiChart _simaiChart;
-    public SimaiChart SimaiChart
+    private SimaiChart? _simaiChart;
+    public SimaiChart? SimaiChart
     {
         get { return _simaiChart; }
         set { SetAndRaise(SimaiChartProperty, ref _simaiChart, value); }
@@ -115,7 +115,7 @@ class SimaiVisualizerControl : Control
     }
 
     //Override Render
-    private readonly GlyphRun _noSkia;
+    private readonly GlyphRun? _noSkia;
     public SimaiVisualizerControl()
     {
         ClipToBounds = true;
@@ -127,9 +127,9 @@ class SimaiVisualizerControl : Control
     }
     class CustomDrawOp : ICustomDrawOperation
     {
-        private readonly IImmutableGlyphRunReference _noSkia;
-        private readonly TrackInfo _trackInfo;
-        private readonly SimaiChart _simaiChart;
+        private readonly IImmutableGlyphRunReference? _noSkia;
+        private readonly TrackInfo? _trackInfo;
+        private readonly SimaiChart? _simaiChart;
         private readonly double _time;
         private readonly double _caretTime;
         private readonly float _zoomLevel;
@@ -137,10 +137,10 @@ class SimaiVisualizerControl : Control
         private static double _lastTime;
         private static double _lastZoom;
         private readonly bool _isAnimated;
-        public CustomDrawOp(Rect bounds, GlyphRun noSkia, 
-            TrackInfo trackInfo, double time, float zoomLevel,SimaiChart simaiChart,float offset, double caretTime,bool isAnimated)
+        public CustomDrawOp(Rect bounds, GlyphRun? noSkia, 
+            TrackInfo? trackInfo, double time, float zoomLevel, SimaiChart? simaiChart, float offset, double caretTime, bool isAnimated)
         {
-            _noSkia = noSkia.TryCreateImmutableGlyphRunReference();
+            _noSkia = noSkia?.TryCreateImmutableGlyphRunReference();
             _trackInfo = trackInfo;
             _time = time;
             _zoomLevel = zoomLevel;
@@ -153,14 +153,17 @@ class SimaiVisualizerControl : Control
         public void Dispose(){}
         public Rect Bounds { get; }
         public bool HitTest(Point p) => true;
-        public bool Equals(ICustomDrawOperation other) => false;
+        public bool Equals(ICustomDrawOperation? other) => false;
         public void Render(ImmediateDrawingContext context)
         {
             if (_trackInfo is null) return;
             if (_simaiChart is null) return;
             var leaseFeature = context.TryGetFeature<ISkiaSharpApiLeaseFeature>();
             if (leaseFeature == null)
-                context.DrawGlyphRun(Brushes.Red, _noSkia); //Some platform may not support it
+            {
+                if (_noSkia != null)
+                    context.DrawGlyphRun(Brushes.Red, _noSkia); //Some platform may not support it
+            }
             else
             {
                 using var lease = leaseFeature.Lease();
@@ -443,7 +446,7 @@ class SimaiVisualizerControl : Control
     }
     public override void Render(DrawingContext context)
     {
-        context.Custom(new CustomDrawOp(new Rect(0, 0, Bounds.Width, Bounds.Height), _noSkia,
+        context.Custom(new CustomDrawOp(new Rect(0, 0, Bounds.Width, Bounds.Height), _noSkia!,
             TrackIf, Time, ZoomLevel, SimaiChart, Offset, CaretTime, IsAnimated));
         Dispatcher.UIThread.InvokeAsync(InvalidateVisual, DispatcherPriority.Background);
     }
