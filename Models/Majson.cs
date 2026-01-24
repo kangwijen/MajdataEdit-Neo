@@ -17,7 +17,9 @@ internal class Majson
 internal class SimaiTimingPoint
 {
     public float currentBpm;
+#pragma warning disable CS0649 // Field is never assigned to, and will always have its default value false
     public bool havePlayed;
+#pragma warning restore CS0649
     public float HSpeed = 1.0f;
     public List<SimaiNote> noteList = new();
     public string notesContent = "";     // Raw simai text content (e.g., "C", "6<3[4:1]")

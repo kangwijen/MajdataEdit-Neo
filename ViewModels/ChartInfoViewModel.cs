@@ -74,7 +74,7 @@ partial class ChartInfoViewModel : ViewModelBase
                 File.Copy(path, MaidataDir + "/bg.png", true);
             OnPropertyChanged(nameof(Cover));
         }
-        catch (Exception e)
+        catch (Exception)
         {
             // Silently handle cover image loading errors
         }
@@ -93,7 +93,7 @@ partial class ChartInfoViewModel : ViewModelBase
             //TODO:Make it MessageBox
             // File size check removed - handle in UI if needed
         }
-        catch (Exception e)
+        catch (Exception)
         {
             // Silently handle video file loading errors
         }

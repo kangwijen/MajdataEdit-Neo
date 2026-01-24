@@ -157,7 +157,7 @@ public partial class MainWindowViewModel : ViewModelBase
             CurrentSimaiChart = await _simaiParser.ParseChartAsync(string.Empty, string.Empty, content);
             //IsSaved = true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Silently handle parsing errors
         }
@@ -231,6 +231,7 @@ public partial class MainWindowViewModel : ViewModelBase
     string _maidataDir = "";
 
     // Audio level fields
+#pragma warning disable CS0414 // The field is assigned but its value is never used
     private float _bgmLevel = 0.7f;
     private float _answerLevel = 0.7f;
     private float _judgeLevel = 0.7f;
@@ -240,6 +241,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private float _exLevel = 0.7f;
     private float _touchLevel = 0.7f;
     private float _hanabiLevel = 0.7f;
+#pragma warning restore CS0414
 
     readonly string[] _level = new string[7];
     readonly Lock _syncLock = new();
@@ -387,7 +389,7 @@ public partial class MainWindowViewModel : ViewModelBase
             IsSaved = false;
             OpenChartInfoWindow();
         }
-        catch (Exception e)
+        catch (Exception)
         {
             // Silently handle file opening errors
         }
@@ -414,7 +416,7 @@ public partial class MainWindowViewModel : ViewModelBase
             await EditorLoad();
             ReadSetting();
         }
-        catch (Exception e)
+        catch (Exception)
         {
             // Silently handle initialization errors
         }
@@ -543,7 +545,7 @@ public partial class MainWindowViewModel : ViewModelBase
             // Save updated settings to handle any version differences
             SaveSetting();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // Silently handle settings loading errors
         }
@@ -630,7 +632,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     var majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
                     ChartSerializer.SaveMajdataJson(majson, _maidataDir);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     // Create a minimal majson for testing
                     var fallbackMajson = new Models.Majson
@@ -697,7 +699,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     var majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
                     ChartSerializer.SaveMajdataJson(majson, _maidataDir);
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     // Create a minimal majson for testing
                     var fallbackMajson = new Models.Majson
