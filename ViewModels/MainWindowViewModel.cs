@@ -25,6 +25,7 @@ using MajdataEdit_Neo.Modules.AutoSave.Contexts;
 using System.Runtime.InteropServices;
 using MajdataEdit_Neo.Types;
 using DiscordRPC;
+using Newtonsoft.Json;
 
 namespace MajdataEdit_Neo.ViewModels;
 
@@ -96,7 +97,6 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             if (CurrentSimaiFile is null || CurrentSimaiFile.Charts[SelectedDifficulty] is null) return;
             CurrentSimaiFile.Charts[SelectedDifficulty].Level = value;
-            Console.WriteLine(SelectedDifficulty);
             SetProperty(ref _level[SelectedDifficulty], value);
             OnPropertyChanged(nameof(CurrentSimaiFile));
         }
@@ -159,7 +159,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex);
+            // Silently handle parsing errors
         }
     }
 
@@ -201,6 +201,26 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isPlaying = false;
 
+    // Audio level properties
+    [ObservableProperty]
+    private float bgmLevel = 0.7f;
+    [ObservableProperty]
+    private float answerLevel = 0.7f;
+    [ObservableProperty]
+    private float judgeLevel = 0.7f;
+    [ObservableProperty]
+    private float breakLevel = 0.7f;
+    [ObservableProperty]
+    private float breakSlideLevel = 0.7f;
+    [ObservableProperty]
+    private float slideLevel = 0.7f;
+    [ObservableProperty]
+    private float exLevel = 0.7f;
+    [ObservableProperty]
+    private float touchLevel = 0.7f;
+    [ObservableProperty]
+    private float hanabiLevel = 0.7f;
+
     bool _isBackToStartOnPlayStop = false;
     bool _isUpdatingAutoSaveContext = false;
     
@@ -209,6 +229,17 @@ public partial class MainWindowViewModel : ViewModelBase
     DateTime _lastUpdateAutoSaveContextTime = DateTime.UnixEpoch;
 
     string _maidataDir = "";
+
+    // Audio level fields
+    private float _bgmLevel = 0.7f;
+    private float _answerLevel = 0.7f;
+    private float _judgeLevel = 0.7f;
+    private float _breakLevel = 0.7f;
+    private float _breakSlideLevel = 0.7f;
+    private float _slideLevel = 0.7f;
+    private float _exLevel = 0.7f;
+    private float _touchLevel = 0.7f;
+    private float _hanabiLevel = 0.7f;
 
     readonly string[] _level = new string[7];
     readonly Lock _syncLock = new();
@@ -238,6 +269,7 @@ public partial class MainWindowViewModel : ViewModelBase
     IAutoSaveRecoverer _autoSaveRecoverer;
 
     const int AUTOSAVE_CONTEXT_UPDATE_INTERVAL_MS = 5000;
+    private const string majSettingFilename = "majSetting.json";
     public MainWindowViewModel()
     {
         PropertyChanged += MainWindowViewModel_PropertyChanged;
@@ -253,6 +285,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public async Task<bool> ConnectToPlayerAsync()
     {
+        // Launch MajdataView if it's not already running
+        if (!_viewerConnection.IsViewerRunning)
+        {
+            await _viewerConnection.LaunchViewerIfNeededAsync();
+        }
+
         // HTTP connection doesn't need explicit connect
         OnPropertyChanged(nameof(IsConnected));
         return true;
@@ -351,7 +389,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         catch (Exception e)
         {
-            Console.WriteLine(e.Message);
+            // Silently handle file opening errors
         }
     }
     public async Task OpenFile()
@@ -374,10 +412,11 @@ public partial class MainWindowViewModel : ViewModelBase
             UpdateAutoSaveContext();
             //TODO: Reset view if already loaded?
             await EditorLoad();
+            ReadSetting();
         }
         catch (Exception e)
         {
-            Console.WriteLine(e.Message);
+            // Silently handle initialization errors
         }
     }
 
@@ -453,7 +492,63 @@ public partial class MainWindowViewModel : ViewModelBase
             OriginFumen = CurrentFumen;
         }
         await _simaiParser.DeParseAsync(CurrentSimaiFile, _maidataDir + "/maidata.txt");
+        SaveSetting();
     }
+
+    private void SaveSetting()
+    {
+        if (string.IsNullOrEmpty(_maidataDir)) return;
+
+        var setting = new MajSetting
+        {
+            lastEditDiff = SelectedDifficulty,
+            lastEditTime = TrackTime,
+            BGM_Level = BgmLevel,
+            Answer_Level = AnswerLevel,
+            Judge_Level = JudgeLevel,
+            Break_Level = BreakLevel,
+            Break_Slide_Level = BreakSlideLevel,
+            Slide_Level = SlideLevel,
+            Ex_Level = ExLevel,
+            Touch_Level = TouchLevel,
+            Hanabi_Level = HanabiLevel
+        };
+
+        var json = JsonConvert.SerializeObject(setting, Formatting.Indented);
+        File.WriteAllText(Path.Combine(_maidataDir, majSettingFilename), json);
+    }
+
+    private void ReadSetting()
+    {
+        var path = Path.Combine(_maidataDir, majSettingFilename);
+        if (!File.Exists(path)) return;
+
+        try
+        {
+            var setting = JsonConvert.DeserializeObject<MajSetting>(File.ReadAllText(path));
+            if (setting == null) return;
+
+            SelectedDifficulty = setting.lastEditDiff;
+            TrackTime = setting.lastEditTime;
+            BgmLevel = setting.BGM_Level;
+            AnswerLevel = setting.Answer_Level;
+            JudgeLevel = setting.Judge_Level;
+            BreakLevel = setting.Break_Level;
+            BreakSlideLevel = setting.Break_Slide_Level;
+            SlideLevel = setting.Slide_Level;
+            ExLevel = setting.Ex_Level;
+            TouchLevel = setting.Touch_Level;
+            HanabiLevel = setting.Hanabi_Level;
+
+            // Save updated settings to handle any version differences
+            SaveSetting();
+        }
+        catch (Exception ex)
+        {
+            // Silently handle settings loading errors
+        }
+    }
+
     public void OpenBpmTapWindow()
     {
         new BpmTapWindow().Show();
@@ -533,12 +628,10 @@ public partial class MainWindowViewModel : ViewModelBase
                 try
                 {
                     var majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
-                    System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", $"MainWindow: Created Majson with {majson.timingList.Count} timing points\n");
                     ChartSerializer.SaveMajdataJson(majson, _maidataDir);
                 }
                 catch (Exception ex)
                 {
-                    System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", $"MainWindow: Chart serialization failed: {ex.Message}\n{ex.StackTrace}\n");
                     // Create a minimal majson for testing
                     var fallbackMajson = new Models.Majson
                     {
@@ -560,7 +653,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     0.6f, // backgroundCover
                     EditorComboIndicator.None, // comboStatusType
                     false, // smoothSlideAnime
-                    EditorPlayMethod.Classic); // editorPlayMethod
+                    EditorPlayMethod.DJAuto); // editorPlayMethod
 
                 OnPlayStarted();
             }
@@ -602,12 +695,10 @@ public partial class MainWindowViewModel : ViewModelBase
                 try
                 {
                     var majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
-                    System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", $"MainWindow: Created Majson with {majson.timingList.Count} timing points\n");
                     ChartSerializer.SaveMajdataJson(majson, _maidataDir);
                 }
                 catch (Exception ex)
                 {
-                    System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", $"MainWindow: Chart serialization failed: {ex.Message}\n{ex.StackTrace}\n");
                     // Create a minimal majson for testing
                     var fallbackMajson = new Models.Majson
                     {
@@ -629,7 +720,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     0.6f, // backgroundCover
                     EditorComboIndicator.None, // comboStatusType
                     false, // smoothSlideAnime
-                    EditorPlayMethod.Classic); // editorPlayMethod
+                    EditorPlayMethod.DJAuto); // editorPlayMethod
 
                 OnPlayStarted();
             }
@@ -726,7 +817,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // Check if MajdataView is running, launch if needed
         if (!_viewerConnection.IsViewerRunning)
         {
-            if (!_viewerConnection.LaunchViewerIfNeeded())
+            if (!await _viewerConnection.LaunchViewerIfNeededAsync())
             {
                 // Failed to launch MajdataView
                 OnPropertyChanged(nameof(IsConnected));
@@ -757,7 +848,6 @@ public partial class MainWindowViewModel : ViewModelBase
         //Console.WriteLine(e.PropertyName);
         if (e.PropertyName == nameof(CurrentSimaiFile))
         {
-            Console.WriteLine("SimaiFileChanged");
             Stop(false);
             lock(_fumenContentChangedSyncLock)
             {

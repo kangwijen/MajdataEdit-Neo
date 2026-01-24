@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
 using System;
@@ -44,7 +44,7 @@ class FileIOManager
             AllowMultiple = false
         });
 
-        if (files.Count == 0) Console.WriteLine("FileSelection Canceled");
+        if (files.Count == 0) return null;
 
         return files?.Count >= 1 ? files[0] : null;
     }

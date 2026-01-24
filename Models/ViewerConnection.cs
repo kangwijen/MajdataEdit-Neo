@@ -179,7 +179,7 @@ internal class ViewerConnection
         return processes.Length > 0 || unityProcesses.Length > 0;
     }
 
-    public bool LaunchViewerIfNeeded()
+    public async Task<bool> LaunchViewerIfNeededAsync()
     {
         if (!CheckViewerRunning())
         {
@@ -202,8 +202,8 @@ internal class ViewerConnection
                 var process = Process.Start("MajdataView.exe");
                 if (process != null)
                 {
-                    // Wait a bit for the process to start
-                    Task.Delay(2000).Wait();
+                    // Wait a bit for the process to start (non-blocking)
+                    await Task.Delay(1000); // Reduced from 2000ms to 1000ms
                     return true;
                 }
             }

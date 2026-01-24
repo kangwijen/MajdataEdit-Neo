@@ -41,16 +41,8 @@ internal static class ChartSerializer
 
     private static void PopulateTimingListFromRawText(Majson majson, string rawChart)
     {
-        var logLines = new List<string>();
-        logLines.Add($"ChartSerializer: Using old-style parsing, offset: {majson.first}");
-
         // Use the old SimaiProcess.Serialize-like logic to create timing points with raw note content
         var timingPoints = OldStyleSerialize(rawChart, majson.first);
-        logLines.Add($"ChartSerializer: OldStyleSerialize returned {timingPoints.Count} timing points");
-        if (timingPoints.Count > 0)
-        {
-            logLines.Add($"ChartSerializer: First TP - time: {timingPoints[0].time}, notesContent: '{timingPoints[0].notesContent}'");
-        }
 
         // Populate noteList for each timing point using the old getNotes() style parsing
         foreach (var timingPoint in timingPoints)
@@ -58,9 +50,6 @@ internal static class ChartSerializer
             timingPoint.noteList = GetNotesFromContent(timingPoint.notesContent, timingPoint.currentBpm, timingPoint.time);
             majson.timingList.Add(timingPoint);
         }
-
-        logLines.Add($"ChartSerializer: Final timingList count: {majson.timingList.Count}");
-        System.IO.File.AppendAllLines(@"D:\MajdataEdit-Neo\debug_log.txt", logLines);
     }
 
     private static List<SimaiTimingPoint> OldStyleSerialize(string text, float offset)
@@ -555,42 +544,14 @@ internal static class ChartSerializer
 
     public static string SerializeToJson(Majson majson)
     {
-        try
+        var options = new JsonSerializerOptions
         {
-            // Debug: Check first timing point
-            if (majson.timingList.Count > 0)
-            {
-                var tp = majson.timingList[0];
-                System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt",
-                    $"SerializeToJson: First TP before JSON - notesContent: '{tp.notesContent}', notesContent is null: {tp.notesContent == null}\n");
-            }
-
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-                IncludeFields = true  // Required to serialize fields instead of properties
-            };
-            var json = JsonSerializer.Serialize(majson, options);
-            System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", $"SerializeToJson: Successfully serialized, JSON length: {json.Length}\n");
-
-            // Debug: Check if notesContent appears in JSON
-            if (json.Contains("\"notesContent\""))
-            {
-                System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", "SerializeToJson: notesContent found in JSON\n");
-            }
-            else
-            {
-                System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", "SerializeToJson: WARNING - notesContent NOT found in JSON\n");
-            }
-
-            return json;
-        }
-        catch (Exception ex)
-        {
-            System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", $"SerializeToJson ERROR: {ex.Message}\n{ex.StackTrace}\n");
-            throw;
-        }
+            WriteIndented = true,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+            IncludeFields = true  // Required to serialize fields instead of properties
+        };
+        var json = JsonSerializer.Serialize(majson, options);
+        return json;
     }
 
     public static void SaveMajdataJson(Majson majson, string directoryPath)
@@ -598,6 +559,5 @@ internal static class ChartSerializer
         var jsonPath = System.IO.Path.Combine(directoryPath, "majdata.json");
         var json = SerializeToJson(majson);
         System.IO.File.WriteAllText(jsonPath, json);
-        System.IO.File.AppendAllText(@"D:\MajdataEdit-Neo\debug_log.txt", $"SaveMajdataJson: Saved to {jsonPath}, JSON length: {json.Length}\n");
     }
 }

@@ -1,4 +1,4 @@
-﻿/*
+/*
   Copyright (c) Moying-moe All rights reserved. Licensed under the MIT license.
   See LICENSE in the project root for license information.
 */
@@ -150,7 +150,6 @@ public sealed class AutoSaveManager
             foreach (var saver in _autoSavers)
                 saver.DoAutoSave();
         }
-        Console.WriteLine("Module: AutoSave executed");
         Task.Run(() => OnAutoSaveExecuted?.Invoke(this));
         // 标记变更已被保存
         _isFileChanged = false;
