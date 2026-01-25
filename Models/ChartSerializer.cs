@@ -21,6 +21,10 @@ internal static class ChartSerializer
             throw new ArgumentException($"Invalid difficulty {difficulty} or charts array");
         }
 
+        // Get the offset - use the UI value from SimaiFile.Offset
+        // The UI is the authoritative source for offset values
+        var offset = simaiFile.Offset;
+
         var majson = new Majson
         {
             title = simaiFile.Title ?? "Unknown Title",
@@ -29,20 +33,21 @@ internal static class ChartSerializer
             difficulty = GetDifficultyText(difficulty),
             diffNum = difficulty,
             level = simaiFile.Charts[difficulty].Level ?? "1",
-            first = simaiFile.Offset,
+            first = offset,
             timingList = new List<SimaiTimingPoint>()
         };
 
         // Use the old SimaiProcess-style parsing to match MajdataEdit-master behavior
-        PopulateTimingListFromRawText(majson, simaiFile.RawCharts[difficulty]);
+        PopulateTimingListFromRawText(majson, simaiFile.RawCharts[difficulty], offset);
 
         return majson;
     }
 
-    private static void PopulateTimingListFromRawText(Majson majson, string rawChart)
+    private static void PopulateTimingListFromRawText(Majson majson, string rawChart, float offset)
     {
         // Use the old SimaiProcess.Serialize-like logic to create timing points with raw note content
-        var timingPoints = OldStyleSerialize(rawChart, majson.first);
+        // Bake the offset into note times (like the old MajdataEdit-master does)
+        var timingPoints = OldStyleSerialize(rawChart, offset);
 
         // Populate noteList for each timing point using the old getNotes() style parsing
         foreach (var timingPoint in timingPoints)

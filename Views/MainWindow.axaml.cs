@@ -71,7 +71,11 @@ public partial class MainWindow : Window
         if (haveAsked) return;
         e.Cancel = true;
         haveAsked = true;
-        if (viewModel != null && !await viewModel.AskSave()) this.Close();
+        if (viewModel != null && !await viewModel.AskSave())
+        {
+            viewModel.Dispose();
+            this.Close();
+        }
         else haveAsked = false;
     }
 

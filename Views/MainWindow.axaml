@@ -89,6 +89,7 @@
         </MenuItem>
         <MenuItem Header="_Tools">
           <MenuItem Header="BPM Tap" Command="{Binding OpenBpmTapWindow}"/>
+          <MenuItem Header="Sound Settings" Command="{Binding OpenSoundSettingWindow}"/>
           <MenuItem Header="Compress bg.mp4"/>
         </MenuItem>
         <MenuItem Header="_About">

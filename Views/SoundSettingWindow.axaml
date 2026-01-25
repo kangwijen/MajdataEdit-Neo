@@ -1,0 +1,147 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MajdataEdit_Neo.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="500"
+        x:Class="MajdataEdit_Neo.Views.SoundSettingWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Sound Settings"
+        Width="400"
+        Height="500"
+        WindowStartupLocation="CenterOwner">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Audio Volume Settings" FontSize="18" FontWeight="Bold" Margin="0,0,0,20"/>
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="15">
+                <!-- BGM Volume -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="60"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="BGM Volume" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding BgmLevel, StringFormat={}{0:P0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider Minimum="0" Maximum="1" Value="{Binding BgmLevel}" Margin="0,0,0,10"/>
+
+                <!-- Answer Volume -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="60"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Answer Volume" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding AnswerLevel, StringFormat={}{0:P0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider Minimum="0" Maximum="1" Value="{Binding AnswerLevel}"  Margin="0,0,0,10"/>
+
+                <!-- Judge Volume -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="60"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Judge Volume" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding JudgeLevel, StringFormat={}{0:P0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider Minimum="0" Maximum="1" Value="{Binding JudgeLevel}"  Margin="0,0,0,10"/>
+
+                <!-- Break Volume -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="60"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Break Volume" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding BreakLevel, StringFormat={}{0:P0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider Minimum="0" Maximum="1" Value="{Binding BreakLevel}"  Margin="0,0,0,10"/>
+
+                <!-- Break Slide Volume -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="60"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Break Slide Volume" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding BreakSlideLevel, StringFormat={}{0:P0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider Minimum="0" Maximum="1" Value="{Binding BreakSlideLevel}"  Margin="0,0,0,10"/>
+
+                <!-- Slide Volume -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="60"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Slide Volume" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding SlideLevel, StringFormat={}{0:P0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider Minimum="0" Maximum="1" Value="{Binding SlideLevel}"  Margin="0,0,0,10"/>
+
+                <!-- EX Volume -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="60"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="EX Volume" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding ExLevel, StringFormat={}{0:P0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider Minimum="0" Maximum="1" Value="{Binding ExLevel}"  Margin="0,0,0,10"/>
+
+                <!-- Touch Volume -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="60"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Touch Volume" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding TouchLevel, StringFormat={}{0:P0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider Minimum="0" Maximum="1" Value="{Binding TouchLevel}"  Margin="0,0,0,10"/>
+
+                <!-- Hanabi Volume -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="60"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Hanabi Volume" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding HanabiLevel, StringFormat={}{0:P0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider Minimum="0" Maximum="1" Value="{Binding HanabiLevel}"  Margin="0,0,0,20"/>
+
+                <!-- SFX Latency Compensation -->
+                <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="80"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="SFX Timing Delay (seconds)" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="{Binding SfxLatencyCompensation, StringFormat={}{0:F4}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                </Grid>
+                <Slider Minimum="-0.2" Maximum="0.2" Value="{Binding SfxLatencyCompensation}" Margin="0,0,0,10"/>
+                <TextBlock Text="Negative values delay SFX, positive values advance SFX timing" FontSize="11" Foreground="Gray" Margin="0,0,0,10"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,20,0,0">
+            <Button Content="Reset to Defaults" Click="ResetToDefaultsButton_Click"/>
+            <Button Content="Close" Click="CloseButton_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

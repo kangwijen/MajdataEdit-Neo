@@ -45,6 +45,8 @@ public partial class MainWindowViewModel : ViewModelBase
             CurrentSimaiFile.Offset = value;
             SetProperty(ref _offset, value);
             OnPropertyChanged(nameof(CurrentSimaiFile));
+            // Regenerate majson.json when offset changes
+            RegenerateMajson();
         }
     }
     public string DisplayTime
@@ -221,6 +223,98 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private float hanabiLevel = 0.7f;
 
+    [ObservableProperty]
+    private double sfxLatencyCompensation = 0.0545;
+
+    partial void OnBgmLevelChanged(float value)
+    {
+        if (_audioManager != null)
+        {
+            _audioManager.BgmLevel = value;
+            _audioManager.UpdateAllVolumes();
+        }
+    }
+
+    partial void OnAnswerLevelChanged(float value)
+    {
+        if (_audioManager != null)
+        {
+            _audioManager.AnswerLevel = value;
+            _audioManager.UpdateAllVolumes();
+        }
+    }
+
+    partial void OnJudgeLevelChanged(float value)
+    {
+        if (_audioManager != null)
+        {
+            _audioManager.JudgeLevel = value;
+            _audioManager.UpdateAllVolumes();
+        }
+    }
+
+    partial void OnBreakLevelChanged(float value)
+    {
+        if (_audioManager != null)
+        {
+            _audioManager.BreakLevel = value;
+            _audioManager.UpdateAllVolumes();
+        }
+    }
+
+    partial void OnBreakSlideLevelChanged(float value)
+    {
+        if (_audioManager != null)
+        {
+            _audioManager.BreakSlideLevel = value;
+            _audioManager.UpdateAllVolumes();
+        }
+    }
+
+    partial void OnSlideLevelChanged(float value)
+    {
+        if (_audioManager != null)
+        {
+            _audioManager.SlideLevel = value;
+            _audioManager.UpdateAllVolumes();
+        }
+    }
+
+    partial void OnExLevelChanged(float value)
+    {
+        if (_audioManager != null)
+        {
+            _audioManager.ExLevel = value;
+            _audioManager.UpdateAllVolumes();
+        }
+    }
+
+    partial void OnTouchLevelChanged(float value)
+    {
+        if (_audioManager != null)
+        {
+            _audioManager.TouchLevel = value;
+            _audioManager.UpdateAllVolumes();
+        }
+    }
+
+    partial void OnHanabiLevelChanged(float value)
+    {
+        if (_audioManager != null)
+        {
+            _audioManager.HanabiLevel = value;
+            _audioManager.UpdateAllVolumes();
+        }
+    }
+
+    partial void OnSfxLatencyCompensationChanged(double value)
+    {
+        if (_audioManager != null)
+        {
+            _audioManager.SfxLatencyCompensation = value;
+        }
+    }
+
     bool _isBackToStartOnPlayStop = false;
     bool _isUpdatingAutoSaveContext = false;
     
@@ -230,22 +324,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     string _maidataDir = "";
 
-    // Audio level fields
-#pragma warning disable CS0414 // The field is assigned but its value is never used
-    private float _bgmLevel = 0.7f;
-    private float _answerLevel = 0.7f;
-    private float _judgeLevel = 0.7f;
-    private float _breakLevel = 0.7f;
-    private float _breakSlideLevel = 0.7f;
-    private float _slideLevel = 0.7f;
-    private float _exLevel = 0.7f;
-    private float _touchLevel = 0.7f;
-    private float _hanabiLevel = 0.7f;
-#pragma warning restore CS0414
-
     readonly string[] _level = new string[7];
     readonly Lock _syncLock = new();
     readonly DiscordRpcClient _dcRPCClient = new("1068882546932326481");
+    private AudioManager? _audioManager;
     readonly RichPresence _dcRichPresence = new()
     {
         Details = "Nothing to do",
@@ -283,6 +365,25 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _autoSaveManager.OnAutoSaveExecuted += OnAutoSaveExecuted;
         _dcRPCClient.SetPresence(_dcRichPresence);
+
+        // Initialize AudioManager
+        try
+        {
+            _audioManager = new AudioManager("SFX");
+            _audioManager.LoadSfx();
+        }
+        catch (Exception ex)
+        {
+            // Audio initialization failed, continue without audio
+            Console.WriteLine($"Audio initialization failed: {ex.Message}");
+        }
+    }
+
+    public void Dispose()
+    {
+        _audioManager?.Dispose();
+        _autoSaveManager.OnAutoSaveExecuted -= OnAutoSaveExecuted;
+        _dcRPCClient.Dispose();
     }
 
     public async Task<bool> ConnectToPlayerAsync()
@@ -497,6 +598,23 @@ public partial class MainWindowViewModel : ViewModelBase
         SaveSetting();
     }
 
+    private void RegenerateMajson()
+    {
+        // Only regenerate if a file is loaded and directory is set
+        if (CurrentSimaiFile == null || string.IsNullOrEmpty(_maidataDir))
+            return;
+
+        try
+        {
+            var majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
+            ChartSerializer.SaveMajdataJson(majson, _maidataDir);
+        }
+        catch (Exception)
+        {
+            // Silently handle errors during regeneration
+        }
+    }
+
     private void SaveSetting()
     {
         if (string.IsNullOrEmpty(_maidataDir)) return;
@@ -513,7 +631,8 @@ public partial class MainWindowViewModel : ViewModelBase
             Slide_Level = SlideLevel,
             Ex_Level = ExLevel,
             Touch_Level = TouchLevel,
-            Hanabi_Level = HanabiLevel
+            Hanabi_Level = HanabiLevel,
+            SFX_Latency_Compensation = SfxLatencyCompensation
         };
 
         var json = JsonConvert.SerializeObject(setting, Formatting.Indented);
@@ -541,6 +660,7 @@ public partial class MainWindowViewModel : ViewModelBase
             ExLevel = setting.Ex_Level;
             TouchLevel = setting.Touch_Level;
             HanabiLevel = setting.Hanabi_Level;
+            SfxLatencyCompensation = setting.SFX_Latency_Compensation;
 
             // Save updated settings to handle any version differences
             SaveSetting();
@@ -554,6 +674,16 @@ public partial class MainWindowViewModel : ViewModelBase
     public void OpenBpmTapWindow()
     {
         new BpmTapWindow().Show();
+    }
+
+    public async void OpenSoundSettingWindow()
+    {
+        var mainWindow = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        if (mainWindow?.MainWindow is null) return;
+
+        var window = new SoundSettingWindow();
+        window.DataContext = this;
+        await window.ShowDialog(mainWindow.MainWindow);
     }
     public async void OpenChartInfoWindow()
     {
@@ -616,7 +746,14 @@ public partial class MainWindowViewModel : ViewModelBase
             if (IsPlaying)
             {
                 await _viewerConnection.PausePlaybackAsync();
-                OnPlayStopped();
+                // Pause audio instead of stopping
+                if (_audioManager != null)
+                {
+                    _audioManager.PauseBgm();
+                    _audioManager.StopSfxLoop();
+                }
+                IsPlaying = false;
+                IsPlayControlEnabled = true;
                 return;
             }
 
@@ -627,28 +764,39 @@ public partial class MainWindowViewModel : ViewModelBase
             // Convert chart to Majson format and send to viewer
             if (CurrentSimaiFile != null)
             {
+                Models.Majson majson;
                 try
                 {
-                    var majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
+                    majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
                     ChartSerializer.SaveMajdataJson(majson, _maidataDir);
+
+                    // Load BGM and generate SFX timings
+                    if (_audioManager != null)
+                    {
+                        var useOgg = File.Exists(Path.Combine(_maidataDir, "track.ogg"));
+                        var bgmPath = Path.Combine(_maidataDir, useOgg ? "track.ogg" : "track.mp3");
+                        _audioManager.LoadBgm(bgmPath);
+                        _audioManager.SetSfxOffset(Offset);
+                        _audioManager.GenerateSfxTimings(majson.timingList, playStartTime);
+                    }
                 }
                 catch (Exception)
                 {
                     // Create a minimal majson for testing
-                    var fallbackMajson = new Models.Majson
+                    majson = new Models.Majson
                     {
                         title = CurrentSimaiFile.Title ?? "Test",
                         artist = CurrentSimaiFile.Artist ?? "Test",
                         timingList = new System.Collections.Generic.List<Models.SimaiTimingPoint>()
                     };
-                    ChartSerializer.SaveMajdataJson(fallbackMajson, _maidataDir);
+                    ChartSerializer.SaveMajdataJson(majson, _maidataDir);
                 }
 
                 var jsonPath = System.IO.Path.Combine(_maidataDir, "majdata.json");
                 await _viewerConnection.StartPlaybackAsync(
                     jsonPath,
                     DateTime.Now,
-                    (float)(TrackTime + Offset),
+                    (float)TrackTime,  // Playback position, not offset
                     7.5f, // playSpeed
                     7.5f, // touchSpeed
                     1.0f, // audioSpeed
@@ -694,28 +842,39 @@ public partial class MainWindowViewModel : ViewModelBase
             // Convert chart to Majson format and send to viewer
             if (CurrentSimaiFile != null)
             {
+                Models.Majson majson;
                 try
                 {
-                    var majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
+                    majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
                     ChartSerializer.SaveMajdataJson(majson, _maidataDir);
+
+                    // Load BGM and generate SFX timings
+                    if (_audioManager != null)
+                    {
+                        var useOgg = File.Exists(Path.Combine(_maidataDir, "track.ogg"));
+                        var bgmPath = Path.Combine(_maidataDir, useOgg ? "track.ogg" : "track.mp3");
+                        _audioManager.LoadBgm(bgmPath);
+                        _audioManager.SetSfxOffset(Offset);
+                        _audioManager.GenerateSfxTimings(majson.timingList, playStartTime);
+                    }
                 }
                 catch (Exception)
                 {
                     // Create a minimal majson for testing
-                    var fallbackMajson = new Models.Majson
+                    majson = new Models.Majson
                     {
                         title = CurrentSimaiFile.Title ?? "Test",
                         artist = CurrentSimaiFile.Artist ?? "Test",
                         timingList = new System.Collections.Generic.List<Models.SimaiTimingPoint>()
                     };
-                    ChartSerializer.SaveMajdataJson(fallbackMajson, _maidataDir);
+                    ChartSerializer.SaveMajdataJson(majson, _maidataDir);
                 }
 
                 var jsonPath = System.IO.Path.Combine(_maidataDir, "majdata.json");
                 await _viewerConnection.StartPlaybackAsync(
                     jsonPath,
                     DateTime.Now,
-                    (float)(TrackTime + Offset),
+                    (float)TrackTime,  // Playback position, not offset
                     7.5f, // playSpeed
                     7.5f, // touchSpeed
                     1.0f, // audioSpeed
@@ -738,6 +897,14 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         IsPlaying = true;
         IsPlayControlEnabled = true;
+
+        // Start audio playback
+        if (_audioManager != null)
+        {
+            _audioManager.PlayBgm(playStartTime);
+            _audioManager.StartSfxLoop();
+        }
+
         await Task.Run(async () =>
         {
             Stopwatch watch = new Stopwatch();
@@ -804,6 +971,13 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         await Task.Delay(32); // Wait the OnPlayStarted Loop to end
         IsPlaying = false;
+
+        // Stop audio playback
+        if (_audioManager != null)
+        {
+            _audioManager.StopSfxLoop();
+            _audioManager.StopBgm();
+        }
         if (_isBackToStartOnPlayStop)
             TrackTime = playStartTime;
         IsPlayControlEnabled = true;

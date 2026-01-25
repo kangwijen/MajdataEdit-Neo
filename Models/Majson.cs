@@ -131,4 +131,5 @@ internal class MajSetting
     public double lastEditTime;
     public float Slide_Level = 0.7f;
     public float Touch_Level = 0.7f;
+    public double SFX_Latency_Compensation = 0.0545;
 }
