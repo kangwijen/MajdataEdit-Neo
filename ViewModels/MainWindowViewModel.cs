@@ -944,27 +944,54 @@ public partial class MainWindowViewModel : ViewModelBase
             IsAnimated = true;
         });
     }
-    public async void Stop(bool isBackToStart = true)
+    public void Stop() => Stop(true);
+
+    private async void Stop(bool isBackToStart)
     {
-        _isBackToStartOnPlayStop = isBackToStart;
         try
         {
             IsPlayControlEnabled = false;
+
+            // Signal the loop to stop FIRST
+            if (IsPlaying)
+            {
+                IsPlaying = false;
+                await Task.Delay(100); // Give the loop time to exit
+
+                // Stop audio
+                if (_audioManager != null)
+                {
+                    _audioManager.StopSfxLoop();
+                    _audioManager.StopBgm();
+                }
+            }
+
+            // Send Stop command to viewer (clears notes from viewer)
             if (!await CheckViewerConnection())
             {
                 if (isBackToStart)
                     TrackTime = playStartTime;
                 return;
             }
-            // For HTTP-based communication, we can always send stop command
+
             await _viewerConnection.StopPlaybackAsync();
-            
+
+            if (isBackToStart)
+            {
+                // Returning to start - reset TrackTime
+                TrackTime = playStartTime;
+            }
+            // else: scrubbing - TrackTime stays at new position, viewer is cleared
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error stopping playback: {ex.Message}");
         }
         finally
         {
             IsPlayControlEnabled = true;
         }
-        
+
     }
 
     private async void OnPlayStopped()
