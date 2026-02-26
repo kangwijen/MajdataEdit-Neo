@@ -45,6 +45,8 @@ public partial class MainWindowViewModel : ViewModelBase
             CurrentSimaiFile.Offset = value;
             SetProperty(ref _offset, value);
             OnPropertyChanged(nameof(CurrentSimaiFile));
+            // Update loop view model with new offset for display
+            LoopViewModel.SetOffset(value);
             // Regenerate majson.json when offset changes
             RegenerateMajson();
         }
@@ -344,6 +346,11 @@ public partial class MainWindowViewModel : ViewModelBase
     TextEditor? _textEditor;
 
     ViewerConnection _viewerConnection = new ViewerConnection();
+
+    // Loop system
+    ILoopController _loopController = new LoopController();
+    public LoopViewModel LoopViewModel { get; private set; }
+    private bool _isProcessingLoop = false;  // Re-entrancy guard for loop trigger
     SimaiParser _simaiParser = new SimaiParser();
     TrackReader _trackReader = new TrackReader();
     InternalAutoSaveContext _internalLocalAutoSaveContext = new();
@@ -365,6 +372,20 @@ public partial class MainWindowViewModel : ViewModelBase
 
         _autoSaveManager.OnAutoSaveExecuted += OnAutoSaveExecuted;
         _dcRPCClient.SetPresence(_dcRichPresence);
+
+        // Initialize Loop system
+        LoopViewModel = new LoopViewModel(_loopController);
+        _loopController.LoopTriggered += async (s, e) => await OnLoopTriggeredAsync();
+
+        // Subscribe to loop region changes to update HasLoopRegion
+        LoopViewModel.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(LoopViewModel.CurrentRegion))
+            {
+                _hasLoopRegion = LoopViewModel.CurrentRegion != null;
+                OnPropertyChanged(nameof(HasLoopRegion));
+            }
+        };
 
         // Initialize AudioManager
         try
@@ -516,6 +537,8 @@ public partial class MainWindowViewModel : ViewModelBase
             //TODO: Reset view if already loaded?
             await EditorLoad();
             ReadSetting();
+            // Update loop view model with current offset after loading
+            LoopViewModel.SetOffset(Offset);
         }
         catch (Exception)
         {
@@ -898,6 +921,9 @@ public partial class MainWindowViewModel : ViewModelBase
         IsPlaying = true;
         IsPlayControlEnabled = true;
 
+        // Update loop controller with current chart for beat snapping
+        LoopViewModel.UpdateChart(CurrentSimaiChart);
+
         // Start audio playback
         if (_audioManager != null)
         {
@@ -914,6 +940,25 @@ public partial class MainWindowViewModel : ViewModelBase
             while (IsPlaying && _viewerConnection.IsViewerRunning)
             {
                 TrackTime = watch.ElapsedMilliseconds / 1000d + playStartTime;
+
+                // Check loop condition
+                if (_loopController.ShouldLoopWithOffset(TrackTime, Offset))
+                {
+                    // Get the loop start time BEFORE triggering (to avoid race condition)
+                    var loopStart = (_loopController.CurrentRegion?.StartTime ?? 0) + Offset;
+
+                    await OnLoopTriggeredAsync();
+
+                    // Set playStartTime directly after async call completes
+                    playStartTime = loopStart;
+                    watch.Restart();
+
+                    // Skip the rest of the loop iteration after triggering loop
+                    var timeB_loop = watch.Elapsed;
+                    var waitTime_loop = Math.Max(16 - (int)(timeB_loop - timeA).TotalMilliseconds, 0);
+                    await Task.Delay(waitTime_loop);
+                    continue;
+                }
 
                 // Stop playback if we've reached the end of the song
                 if (SongTrackInfo != null && TrackTime >= SongTrackInfo.Length)
@@ -1010,6 +1055,70 @@ public partial class MainWindowViewModel : ViewModelBase
         IsPlayControlEnabled = true;
     }
 
+    /// <summary>
+    /// Handles loop trigger - jumps playback back to loop start.
+    /// </summary>
+    private async Task OnLoopTriggeredAsync()
+    {
+        // Re-entrancy guard - prevent overlapping loop triggers
+        if (_isProcessingLoop) return;
+        if (_loopController.CurrentRegion is null) return;
+
+        _isProcessingLoop = true;
+        try
+        {
+            // Get loop start and convert to display time (add offset)
+            var loopStart = _loopController.CurrentRegion.StartTime + Offset;
+
+            // Send Stop command to viewer to clear notes
+            await _viewerConnection.StopPlaybackAsync();
+            await Task.Delay(32); // Brief pause for viewer to process
+
+            // Stop audio
+            if (_audioManager != null)
+            {
+                _audioManager.StopSfxLoop();
+                _audioManager.StopBgm();
+            }
+
+            // Reset time to loop start
+            playStartTime = loopStart;
+            TrackTime = loopStart;
+
+            // Regenerate chart and send Start command to viewer
+            if (CurrentSimaiFile != null)
+            {
+                var majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
+                ChartSerializer.SaveMajdataJson(majson, _maidataDir);
+
+                var jsonPath = Path.Combine(_maidataDir, "majdata.json");
+                await _viewerConnection.StartPlaybackAsync(
+                    jsonPath,
+                    DateTime.Now,
+                    (float)loopStart,
+                    7.5f, // playSpeed
+                    7.5f, // touchSpeed
+                    1.0f, // audioSpeed
+                    0.6f, // backgroundCover
+                    EditorComboIndicator.None,
+                    false,
+                    EditorPlayMethod.DJAuto);
+
+                // Restart audio at loop position
+                if (_audioManager != null)
+                {
+                    _audioManager.PlayBgm(loopStart);
+                    _audioManager.GenerateSfxTimings(majson.timingList, loopStart);
+                    _audioManager.StartSfxLoop();
+                }
+            }
+        }
+        finally
+        {
+            _isProcessingLoop = false;
+        }
+    }
+
     private async void OnLoadRequired()
     {
         await EditorLoad();
@@ -1040,6 +1149,74 @@ public partial class MainWindowViewModel : ViewModelBase
         editor.ScrollTo((int)position.Y + 1, (int)position.X);
         editor.Focus();
     }
+
+    // Loop region tracking
+    private double? _pendingLoopStart;
+    private bool _loopStartSet;
+    private bool _hasLoopRegion;
+
+    /// <summary>
+    /// Gets whether the loop start point has been set.
+    /// </summary>
+    public bool LoopStartSet => _loopStartSet;
+
+    /// <summary>
+    /// Gets whether a loop region has been set (for button styling).
+    /// </summary>
+    public bool HasLoopRegion => _hasLoopRegion;
+
+    /// <summary>
+    /// Sets the loop start point to the current track time.
+    /// </summary>
+    [RelayCommand]
+    public void SetLoopStart()
+    {
+        _pendingLoopStart = TrackTime; // Store display time (with offset) for snapping
+        _loopStartSet = true;
+        OnPropertyChanged(nameof(LoopStartSet));
+    }
+
+    /// <summary>
+    /// Sets the loop end point to the current track time and creates the loop region.
+    /// </summary>
+    [RelayCommand]
+    public void SetLoopEnd()
+    {
+        if (_pendingLoopStart is null) return;
+
+        var endTime = TrackTime; // Display time (with offset)
+        var startTime = _pendingLoopStart.Value;
+
+        // Convert to chart times for storage (without offset)
+        var chartStartTime = startTime - Offset;
+        var chartEndTime = endTime - Offset;
+
+        // Ensure start is before end
+        if (chartStartTime > chartEndTime)
+        {
+            (chartStartTime, chartEndTime) = (chartEndTime, chartStartTime);
+        }
+
+        // Try to set the region via LoopViewModel
+        var success = LoopViewModel?.TrySetRegion(chartStartTime, chartEndTime, CurrentSimaiChart) ?? false;
+        Console.WriteLine($"[LOOP] TrySetRegion: start={chartStartTime:F3}, end={chartEndTime:F3}, success={success}, Offset={Offset:F3}");
+        if (success)
+        {
+            _hasLoopRegion = true;
+            OnPropertyChanged(nameof(HasLoopRegion));
+            Console.WriteLine($"[LOOP] Region set successfully! IsEnabled={_loopController.IsEnabled}");
+        }
+        else
+        {
+            Console.WriteLine($"[LOOP] Region set FAILED!");
+        }
+
+        // Clear the pending start
+        _pendingLoopStart = null;
+        _loopStartSet = false;
+        OnPropertyChanged(nameof(LoopStartSet));
+    }
+
     void UpdateAutoSaveContext()
     {
         _internalLocalAutoSaveContext.RawFilePath = Path.Combine(_maidataDir, "maidata.txt");

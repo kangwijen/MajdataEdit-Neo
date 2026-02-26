@@ -114,6 +114,46 @@ class SimaiVisualizerControl : Control
         set { SetAndRaise(IsAnimatedProperty, ref _isAnimated, value); }
     }
 
+    // Loop region properties
+    public static readonly DirectProperty<SimaiVisualizerControl, bool> IsLoopEnabledProperty =
+        AvaloniaProperty.RegisterDirect<SimaiVisualizerControl, bool>(
+            nameof(IsLoopEnabled),
+            o => o.IsLoopEnabled,
+            (o, v) => o.IsLoopEnabled = v,
+            defaultBindingMode: Avalonia.Data.BindingMode.OneWay);
+    private bool _isLoopEnabled;
+    public bool IsLoopEnabled
+    {
+        get => _isLoopEnabled;
+        set => SetAndRaise(IsLoopEnabledProperty, ref _isLoopEnabled, value);
+    }
+
+    public static readonly DirectProperty<SimaiVisualizerControl, double?> LoopStartTimeProperty =
+        AvaloniaProperty.RegisterDirect<SimaiVisualizerControl, double?>(
+            nameof(LoopStartTime),
+            o => o.LoopStartTime,
+            (o, v) => o.LoopStartTime = v,
+            defaultBindingMode: Avalonia.Data.BindingMode.OneWay);
+    private double? _loopStartTime;
+    public double? LoopStartTime
+    {
+        get => _loopStartTime;
+        set => SetAndRaise(LoopStartTimeProperty, ref _loopStartTime, value);
+    }
+
+    public static readonly DirectProperty<SimaiVisualizerControl, double?> LoopEndTimeProperty =
+        AvaloniaProperty.RegisterDirect<SimaiVisualizerControl, double?>(
+            nameof(LoopEndTime),
+            o => o.LoopEndTime,
+            (o, v) => o.LoopEndTime = v,
+            defaultBindingMode: Avalonia.Data.BindingMode.OneWay);
+    private double? _loopEndTime;
+    public double? LoopEndTime
+    {
+        get => _loopEndTime;
+        set => SetAndRaise(LoopEndTimeProperty, ref _loopEndTime, value);
+    }
+
     //Override Render
     private readonly GlyphRun? _noSkia;
     public SimaiVisualizerControl()
@@ -123,7 +163,8 @@ class SimaiVisualizerControl : Control
         var glyphs = text.Select(ch => Typeface.Default.GlyphTypeface.GetGlyph(ch)).ToArray();
         _noSkia = new GlyphRun(Typeface.Default.GlyphTypeface, 12, text.AsMemory(), glyphs);
 
-        AffectsRender<SimaiVisualizerControl>(TimeProperty, TrackIfProperty, ZoomLevelProperty, SimaiChartProperty, OffsetProperty, CaretTimeProperty);
+        AffectsRender<SimaiVisualizerControl>(TimeProperty, TrackIfProperty, ZoomLevelProperty, SimaiChartProperty, OffsetProperty, CaretTimeProperty,
+            IsLoopEnabledProperty, LoopStartTimeProperty, LoopEndTimeProperty);
     }
     class CustomDrawOp : ICustomDrawOperation
     {
@@ -134,11 +175,15 @@ class SimaiVisualizerControl : Control
         private readonly double _caretTime;
         private readonly float _zoomLevel;
         private readonly float _offset;
+        private readonly bool _isLoopEnabled;
+        private readonly double? _loopStartTime;
+        private readonly double? _loopEndTime;
         private static double _lastTime;
         private static double _lastZoom;
         private readonly bool _isAnimated;
-        public CustomDrawOp(Rect bounds, GlyphRun? noSkia, 
-            TrackInfo? trackInfo, double time, float zoomLevel, SimaiChart? simaiChart, float offset, double caretTime, bool isAnimated)
+        public CustomDrawOp(Rect bounds, GlyphRun? noSkia,
+            TrackInfo? trackInfo, double time, float zoomLevel, SimaiChart? simaiChart, float offset, double caretTime, bool isAnimated,
+            bool isLoopEnabled, double? loopStartTime, double? loopEndTime)
         {
             _noSkia = noSkia?.TryCreateImmutableGlyphRunReference();
             _trackInfo = trackInfo;
@@ -148,6 +193,9 @@ class SimaiVisualizerControl : Control
             _offset = offset;
             _caretTime = caretTime;
             _isAnimated = isAnimated;
+            _isLoopEnabled = isLoopEnabled;
+            _loopStartTime = loopStartTime;
+            _loopEndTime = loopEndTime;
             Bounds = bounds;
         }
         public void Dispose(){}
@@ -432,14 +480,45 @@ class SimaiVisualizerControl : Control
                     paint.Color = SKColors.Orange;
                     paint.Style = SKPaintStyle.Fill;
                     var x2 = (float)(time / step - startindex) * linewidth;
-                    SKPoint[] tranglePoints2 = { new(x2 - 5, 0), new(x2 + 5, 0), new(x2, 8f)};
-                    var path = new SKPath();
-                    path.MoveTo(tranglePoints2[0]);
-                    foreach (var point in tranglePoints2) path.LineTo(point);
+                    using var path = new SKPath();
+                    path.MoveTo(x2 - 2, 0);
+                    path.LineTo(x2 + 2, 0);
+                    path.LineTo(x2, 3.46f);
                     path.Close();
                     canvas.DrawPath(path, paint);
                 }
-                
+
+                // Draw loop region
+                if (_isLoopEnabled && _loopStartTime.HasValue && _loopEndTime.HasValue)
+                {
+                    var loopStart = _loopStartTime.Value;
+                    var loopEnd = _loopEndTime.Value;
+
+                    var startX = ((float)(loopStart / step) - startindex) * linewidth;
+                    var endX = ((float)(loopEnd / step) - startindex) * linewidth;
+
+                    // Clamp to visible bounds
+                    var drawStart = Math.Max(0, startX);
+                    var drawEnd = Math.Min((float)width, endX);
+
+                    if (drawEnd > drawStart)
+                    {
+                        // Draw transparent highlight
+                        paint.Color = new SKColor(0, 200, 200, 40); // Cyan/turquoise, transparent
+                        paint.Style = SKPaintStyle.Fill;
+                        canvas.DrawRect(drawStart, 0, drawEnd - drawStart, (float)height, paint);
+
+                        // Draw start line
+                        paint.Color = new SKColor(0, 200, 200, 255); // Cyan/turquoise, solid
+                        paint.StrokeWidth = 2;
+                        paint.Style = SKPaintStyle.Stroke;
+                        canvas.DrawLine(startX, 0, startX, (float)height, paint);
+
+                        // Draw end line
+                        canvas.DrawLine(endX, 0, endX, (float)height, paint);
+                    }
+                }
+
                 canvas.Restore();
             }
         }
@@ -447,7 +526,8 @@ class SimaiVisualizerControl : Control
     public override void Render(DrawingContext context)
     {
         context.Custom(new CustomDrawOp(new Rect(0, 0, Bounds.Width, Bounds.Height), _noSkia!,
-            TrackIf, Time, ZoomLevel, SimaiChart, Offset, CaretTime, IsAnimated));
+            TrackIf, Time, ZoomLevel, SimaiChart, Offset, CaretTime, IsAnimated,
+            IsLoopEnabled, LoopStartTime, LoopEndTime));
         Dispatcher.UIThread.InvokeAsync(InvalidateVisual, DispatcherPriority.Background);
     }
 }

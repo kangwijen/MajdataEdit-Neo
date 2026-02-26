@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using AvaloniaEdit;
 using AvaloniaEdit.Editing;
@@ -23,6 +24,7 @@ public partial class MainWindow : Window
     MainWindowViewModel? viewModel => (MainWindowViewModel?)DataContext;
     TextEditor? textEditor;
     SimaiVisualizerControl? simaiVisual;
+    LoopVisualizerOverlay? loopOverlay;
     public MainWindow()
     {
         InitializeComponent();
@@ -46,6 +48,12 @@ public partial class MainWindow : Window
             simaiVisual.PointerWheelChanged += SimaiVisual_PointerWheelChanged;
             simaiVisual.PointerMoved += SimaiVisual_PointerMoved;
         }
+        //setup loop overlay
+        loopOverlay = this.FindControl<LoopVisualizerOverlay>("LoopOverlay");
+        if (loopOverlay != null)
+        {
+            loopOverlay.RegionSelected += LoopOverlay_RegionSelected;
+        }
         //zoom buttons
         var zoomIn = this.FindControl<Button>("ZoomIn");
         if (zoomIn != null) zoomIn.Click += ZoomIn_Click;
@@ -62,7 +70,57 @@ public partial class MainWindow : Window
     private async void MainWindow_Loaded(object? sender, RoutedEventArgs e)
     {
         if (viewModel != null)
+        {
             await viewModel.ConnectToPlayerAsync();
+            // Subscribe to loop region changes for button styling
+            viewModel.PropertyChanged += (s, args) =>
+            {
+                if (args.PropertyName == nameof(viewModel.HasLoopRegion))
+                {
+                    UpdateLoopButtonColors();
+                }
+                if (args.PropertyName == nameof(viewModel.LoopStartSet))
+                {
+                    UpdateLoopButtonColors();
+                }
+            };
+        }
+    }
+
+    private void UpdateLoopButtonColors()
+    {
+        if (viewModel == null) return;
+
+        var loopStartBtn = this.FindControl<Button>("LoopStart");
+        var loopEndBtn = this.FindControl<Button>("LoopEnd");
+
+        if (loopStartBtn != null)
+        {
+            if (viewModel.LoopStartSet)
+            {
+                loopStartBtn.Background = new SolidColorBrush(Color.Parse("#00CC00"));
+                loopStartBtn.Foreground = new SolidColorBrush(Colors.White);
+            }
+            else
+            {
+                loopStartBtn.Background = new SolidColorBrush(Color.Parse("#DDDDDD"));
+                loopStartBtn.Foreground = new SolidColorBrush(Colors.Black);
+            }
+        }
+
+        if (loopEndBtn != null)
+        {
+            if (viewModel.HasLoopRegion)
+            {
+                loopEndBtn.Background = new SolidColorBrush(Color.Parse("#00CC00"));
+                loopEndBtn.Foreground = new SolidColorBrush(Colors.White);
+            }
+            else
+            {
+                loopEndBtn.Background = new SolidColorBrush(Color.Parse("#DDDDDD"));
+                loopEndBtn.Foreground = new SolidColorBrush(Colors.Black);
+            }
+        }
     }
 
     bool haveAsked = false;
@@ -169,5 +227,42 @@ public partial class MainWindow : Window
         }
     }
 
+    private void LoopOverlay_RegionSelected(object? sender, LoopSelectionEventArgs e)
+    {
+        if (viewModel?.LoopViewModel == null) return;
+        // Only allow region selection when loop is enabled
+        if (!viewModel.LoopViewModel.IsEnabled) return;
+
+        // Convert pixel positions to time values
+        // This needs to match the visualizer's time-to-pixel conversion
+        var currentTime = viewModel.TrackTime;
+        var zoomLevel = viewModel.TrackZoomLevel;
+        var songLength = viewModel.SongTrackInfo?.Length ?? 0;
+        var offset = viewModel.Offset;
+
+        // Calculate visible time range (same formula as visualizer rendering)
+        var visibleStart = currentTime - zoomLevel;
+        var visibleEnd = currentTime + zoomLevel;
+
+        // The overlay control's Bounds.Width is the full width
+        // But we need to get it from the overlay since that's where the event comes from
+        var overlayWidth = (sender as LoopVisualizerOverlay)?.Bounds.Width ?? 800;
+
+        // Convert X positions to times
+        var startTime = visibleStart + (e.StartPosition / overlayWidth) * (visibleEnd - visibleStart);
+        var endTime = visibleStart + (e.EndPosition / overlayWidth) * (visibleEnd - visibleStart);
+
+        // Clamp to valid range
+        startTime = Math.Max(0, Math.Min(songLength, startTime));
+        endTime = Math.Max(0, Math.Min(songLength, endTime));
+
+        // Apply offset correction: the visualizer displays times with offset added
+        // So we need to subtract offset to get the actual chart time
+        var adjustedStartTime = startTime - offset;
+        var adjustedEndTime = endTime - offset;
+
+        // Try to set the loop region via ViewModel
+        viewModel.LoopViewModel.TrySetRegion(adjustedStartTime, adjustedEndTime, viewModel.CurrentSimaiChart);
+    }
 
 }

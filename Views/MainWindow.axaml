@@ -124,6 +124,30 @@
         <NumericUpDown  Name="First" Value="{Binding Offset}" Increment="0.01"/>
         <CheckBox Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Margin="0 10 0 0"
                   IsChecked="{Binding IsFollowCursor}">Follow Cursor</CheckBox>
+        <CheckBox Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Margin="0 5 0 0"
+                  IsChecked="{Binding LoopViewModel.IsEnabled}">Loop</CheckBox>
+        <StackPanel Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Margin="0 2 0 0" HorizontalAlignment="Center">
+          <Button Name="LoopStart" Content="Set Start" Padding="5 2" Margin="0 0 5 0" FontSize="11" Command="{Binding SetLoopStart}">
+            <Button.Styles>
+              <Style Selector="Button">
+                <Setter Property="Background" Value="#DDDDDD"/>
+              </Style>
+              <Style Selector="Button:pointerover">
+                <Setter Property="Background" Value="#CCCCCC"/>
+              </Style>
+            </Button.Styles>
+          </Button>
+          <Button Name="LoopEnd" Content="Set End" Padding="5 2" FontSize="11" Command="{Binding SetLoopEnd}">
+            <Button.Styles>
+              <Style Selector="Button">
+                <Setter Property="Background" Value="#DDDDDD"/>
+              </Style>
+              <Style Selector="Button:pointerover">
+                <Setter Property="Background" Value="#CCCCCC"/>
+              </Style>
+            </Button.Styles>
+          </Button>
+        </StackPanel>
         <CheckBox IsChecked="{Binding IsConnected}" IsEnabled="False">Connection</CheckBox>
       </StackPanel>
 
@@ -181,7 +205,22 @@
                                        Height="100" Grid.Row="4" Grid.ColumnSpan="4"
                                        Time="{Binding TrackTime}" TrackIf="{Binding SongTrackInfo}"
                                        ZoomLevel="{Binding TrackZoomLevel}" SimaiChart="{Binding CurrentSimaiChart}"
-                                       Offset="{Binding Offset}" CaretTime="{Binding CaretTime}" IsAnimated ="{Binding IsAnimated}"/>
+                                       Offset="{Binding Offset}" CaretTime="{Binding CaretTime}" IsAnimated ="{Binding IsAnimated}"
+                                       IsLoopEnabled="{Binding LoopViewModel.IsEnabled}"
+                                       LoopStartTime="{Binding LoopViewModel.StartTime}"
+                                       LoopEndTime="{Binding LoopViewModel.EndTime}"/>
+
+      <!-- Loop visualizer overlay for right-click drag selection -->
+      <controls:LoopVisualizerOverlay Name="LoopOverlay"
+                                        Grid.Row="4" Grid.ColumnSpan="4"
+                                        Height="100"
+                                        ZIndex="10"
+                                        LoopRegion="{Binding LoopViewModel.CurrentRegion}"
+                                        CurrentTime="{Binding TrackTime}"
+                                        ZoomLevel="{Binding TrackZoomLevel}"
+                                        Offset="{Binding Offset}"
+                                        SongLength="{Binding SongTrackInfo.Length}"
+                                        IsHitTestVisible="True"/>
       <DockPanel Grid.Row="4" >
         <Button Name="ZoomOut" DockPanel.Dock="Bottom" Width="30" Height="30" Margin="10">
           <PathIcon Width="8" Data="{StaticResource zoom_out}"/>
