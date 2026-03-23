@@ -90,6 +90,20 @@ jobs:
             throw "MajdataView-build not found: $viewBuild. The workflow expects the Unity player output to be inside MajdataView-build."
           }
 
+          # SFX files: the app loads audio from the "SFX" folder relative to the working directory.
+          $sfxSrc = Join-Path "${{ github.workspace }}" "SFX"
+          if (Test-Path $sfxSrc) {
+            $fdSfx = Join-Path $fdPkg "SFX"
+            $scSfx = Join-Path $scPkg "SFX"
+            New-Item -ItemType Directory -Force -Path $fdSfx | Out-Null
+            New-Item -ItemType Directory -Force -Path $scSfx | Out-Null
+
+            Copy-Item -Force -Recurse (Join-Path $sfxSrc "*") $fdSfx
+            Copy-Item -Force -Recurse (Join-Path $sfxSrc "*") $scSfx
+          } else {
+            throw "SFX folder not found: $sfxSrc. The workflow expects sound effects to be inside a repo-root SFX directory."
+          }
+
           $fdZip = Join-Path $zipDir "MajdataEdit-Neo-${{ env.RUNTIME }}-framework-dependent.zip"
           $scZip = Join-Path $zipDir "MajdataEdit-Neo-${{ env.RUNTIME }}-self-contained-singlefile.zip"
 
