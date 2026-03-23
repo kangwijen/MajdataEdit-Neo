@@ -239,6 +239,65 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private float noteSpeed = 7.5f;
 
+    [ObservableProperty]
+    private float touchSpeed = 7.5f;
+
+    private readonly string _editorSettingFilename = "EditorSetting.json";
+    private EditorSetting _editorSetting = new();
+    private bool _isLoadingEditorSetting;
+
+    private string GetEditorSettingPath()
+    {
+        // Match legacy Majdata behavior: relative to the app working directory.
+        return Path.Combine(Environment.CurrentDirectory, _editorSettingFilename);
+    }
+
+    private void ReadEditorSetting()
+    {
+        _isLoadingEditorSetting = true;
+        try
+        {
+            var path = GetEditorSettingPath();
+            if (!File.Exists(path))
+            {
+                _editorSetting = new EditorSetting();
+                File.WriteAllText(path, JsonConvert.SerializeObject(_editorSetting, Formatting.Indented));
+            }
+            else
+            {
+                var json = File.ReadAllText(path);
+                _editorSetting = JsonConvert.DeserializeObject<EditorSetting>(json) ?? new EditorSetting();
+            }
+
+            // Neo UI supports Off/Combo + Default/DJAuto and independent note/touch speed.
+            CenterDisplayMode = _editorSetting.comboStatusType == EditorComboIndicator.Combo ? 1 : 0;
+            PlayModeIndex = _editorSetting.editorPlayMethod == EditorPlayMethod.DJAuto ? 1 : 0;
+            NoteSpeed = _editorSetting.playSpeed;
+            TouchSpeed = _editorSetting.touchSpeed;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to read EditorSetting.json: {ex.Message}");
+        }
+        finally
+        {
+            _isLoadingEditorSetting = false;
+        }
+    }
+
+    private void SaveEditorSetting()
+    {
+        try
+        {
+            var path = GetEditorSettingPath();
+            File.WriteAllText(path, JsonConvert.SerializeObject(_editorSetting, Formatting.Indented));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to save EditorSetting.json: {ex.Message}");
+        }
+    }
+
     private EditorComboIndicator GetCenterDisplayIndicator()
     {
         return CenterDisplayMode == 1 ? EditorComboIndicator.Combo : EditorComboIndicator.None;
@@ -252,6 +311,34 @@ public partial class MainWindowViewModel : ViewModelBase
             1 => EditorPlayMethod.DJAuto,
             _ => EditorPlayMethod.DJAuto
         };
+    }
+
+    partial void OnCenterDisplayModeChanged(int value)
+    {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.comboStatusType = value == 1 ? EditorComboIndicator.Combo : EditorComboIndicator.None;
+        SaveEditorSetting();
+    }
+
+    partial void OnPlayModeIndexChanged(int value)
+    {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.editorPlayMethod = value == 1 ? EditorPlayMethod.DJAuto : EditorPlayMethod.Classic;
+        SaveEditorSetting();
+    }
+
+    partial void OnNoteSpeedChanged(float value)
+    {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.playSpeed = value;
+        SaveEditorSetting();
+    }
+
+    partial void OnTouchSpeedChanged(float value)
+    {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.touchSpeed = value;
+        SaveEditorSetting();
     }
 
     partial void OnBgmLevelChanged(float value)
@@ -369,6 +456,63 @@ public partial class MainWindowViewModel : ViewModelBase
     };
     readonly Lock _fumenContentChangedSyncLock = new();
 
+    CancellationTokenSource? _discordRpcLoopCts;
+    Task? _discordRpcLoopTask;
+
+    string GetSelectedDifficultyText()
+    {
+        return SelectedDifficulty switch
+        {
+            0 => "EASY",
+            1 => "BASIC",
+            2 => "ADVANCED",
+            3 => "EXPERT",
+            4 => "MASTER",
+            5 => "Re:MASTER",
+            6 => "ORIGINAL",
+            _ => $"DIFF{SelectedDifficulty}"
+        };
+    }
+
+    string GetSelectedChartLevelText()
+    {
+        if (CurrentSimaiFile is null) return string.Empty;
+        var chart = CurrentSimaiFile.Charts.ElementAtOrDefault(SelectedDifficulty);
+        var level = chart?.Level;
+        return string.IsNullOrWhiteSpace(level) ? string.Empty : level.Trim();
+    }
+
+    void UpdateDiscordRpcEditingPresence()
+    {
+        const string fallback = "Nothing to do";
+
+        if (CurrentSimaiFile is null)
+        {
+            _dcRichPresence.Details = fallback;
+            if (_dcRichPresence.Assets is not null)
+                _dcRichPresence.Assets.LargeImageText = fallback;
+        }
+        else
+        {
+            var chartTitle = CurrentSimaiFile.Title;
+            if (string.IsNullOrWhiteSpace(chartTitle))
+                chartTitle = "Unknown";
+
+            var difficultyText = GetSelectedDifficultyText();
+            var chartLevelText = GetSelectedChartLevelText();
+            if (string.IsNullOrWhiteSpace(chartLevelText))
+                chartLevelText = "?";
+
+            var editingText = $"Editing {chartTitle} {difficultyText} {chartLevelText}";
+            _dcRichPresence.Details = editingText;
+
+            if (_dcRichPresence.Assets is not null)
+                _dcRichPresence.Assets.LargeImageText = editingText;
+        }
+
+        _dcRPCClient.SetPresence(_dcRichPresence);
+    }
+
     TextEditor? _textEditor;
 
     ViewerConnection _viewerConnection = new ViewerConnection();
@@ -397,7 +541,11 @@ public partial class MainWindowViewModel : ViewModelBase
         _autoSaveRecoverer = _autoSaveManager.Recoverer;
 
         _autoSaveManager.OnAutoSaveExecuted += OnAutoSaveExecuted;
-        _dcRPCClient.SetPresence(_dcRichPresence);
+
+        ReadEditorSetting();
+
+        InitializeDiscordRpc();
+        UpdateDiscordRpcEditingPresence();
 
         // Initialize Loop system
         LoopViewModel = new LoopViewModel(_loopController);
@@ -426,10 +574,69 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
+    void InitializeDiscordRpc()
+    {
+        try
+        {
+            _dcRPCClient.Initialize();
+        }
+        catch (Exception ex)
+        {
+            // If Discord RPC IPC fails, don't crash the app.
+            Console.WriteLine($"Discord RPC init failed: {ex.Message}");
+            return;
+        }
+
+        _discordRpcLoopCts = new CancellationTokenSource();
+        var token = _discordRpcLoopCts.Token;
+
+        _discordRpcLoopTask = Task.Run(async () =>
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    _dcRPCClient.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Discord RPC invoke failed: {ex.Message}");
+                }
+
+                // Recommended: call Invoke faster than 15s due to join-request timeout.
+                try
+                {
+                    await Task.Delay(10000, token);
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+            }
+        }, token);
+    }
+
+    partial void OnCurrentSimaiFileChanged(SimaiFile? value)
+    {
+        UpdateDiscordRpcEditingPresence();
+    }
+
+    partial void OnSelectedDifficultyChanged(int value)
+    {
+        UpdateDiscordRpcEditingPresence();
+    }
+
     public void Dispose()
     {
         _audioManager?.Dispose();
         _autoSaveManager.OnAutoSaveExecuted -= OnAutoSaveExecuted;
+        try
+        {
+            _discordRpcLoopCts?.Cancel();
+        }
+        catch
+        {
+        }
         _dcRPCClient.Dispose();
     }
 
@@ -681,10 +888,7 @@ public partial class MainWindowViewModel : ViewModelBase
             Ex_Level = ExLevel,
             Touch_Level = TouchLevel,
             Hanabi_Level = HanabiLevel,
-            SFX_Latency_Compensation = SfxLatencyCompensation,
-            Center_Display_Mode = CenterDisplayMode,
-            Play_Mode = PlayModeIndex,
-            Note_Speed = NoteSpeed
+            SFX_Latency_Compensation = SfxLatencyCompensation
         };
 
         var json = JsonConvert.SerializeObject(setting, Formatting.Indented);
@@ -713,10 +917,6 @@ public partial class MainWindowViewModel : ViewModelBase
             TouchLevel = setting.Touch_Level;
             HanabiLevel = setting.Hanabi_Level;
             SfxLatencyCompensation = setting.SFX_Latency_Compensation;
-
-            CenterDisplayMode = setting.Center_Display_Mode;
-            PlayModeIndex = setting.Play_Mode;
-            NoteSpeed = setting.Note_Speed;
 
             // Save updated settings to handle any version differences
             SaveSetting();
@@ -853,12 +1053,12 @@ public partial class MainWindowViewModel : ViewModelBase
                     jsonPath,
                     DateTime.Now,
                     (float)TrackTime,  // Playback position, not offset
-                    NoteSpeed, // noteSpeed
-                    NoteSpeed, // touchSpeed
+                    _editorSetting.playSpeed, // noteSpeed
+                    _editorSetting.touchSpeed, // touchSpeed
                     1.0f, // audioSpeed
-                    0.6f, // backgroundCover
+                    _editorSetting.backgroundCover, // backgroundCover
                     GetCenterDisplayIndicator(), // comboStatusType
-                    false, // smoothSlideAnime
+                    _editorSetting.SmoothSlideAnime, // smoothSlideAnime
                     GetSelectedPlayMethod()); // editorPlayMethod
 
                 OnPlayStarted();
@@ -931,12 +1131,12 @@ public partial class MainWindowViewModel : ViewModelBase
                     jsonPath,
                     DateTime.Now,
                     (float)TrackTime,  // Playback position, not offset
-                    NoteSpeed, // noteSpeed
-                    NoteSpeed, // touchSpeed
+                    _editorSetting.playSpeed, // noteSpeed
+                    _editorSetting.touchSpeed, // touchSpeed
                     1.0f, // audioSpeed
-                    0.6f, // backgroundCover
+                    _editorSetting.backgroundCover, // backgroundCover
                     GetCenterDisplayIndicator(), // comboStatusType
-                    false, // smoothSlideAnime
+                    _editorSetting.SmoothSlideAnime, // smoothSlideAnime
                     GetSelectedPlayMethod()); // editorPlayMethod
 
                 OnPlayStarted();
@@ -1134,12 +1334,12 @@ public partial class MainWindowViewModel : ViewModelBase
                     jsonPath,
                     DateTime.Now,
                     (float)loopStart,
-                    NoteSpeed, // noteSpeed
-                    NoteSpeed, // touchSpeed
+                    _editorSetting.playSpeed, // noteSpeed
+                    _editorSetting.touchSpeed, // touchSpeed
                     1.0f, // audioSpeed
-                    0.6f, // backgroundCover
+                    _editorSetting.backgroundCover, // backgroundCover
                     GetCenterDisplayIndicator(),
-                    false,
+                    _editorSetting.SmoothSlideAnime,
                     GetSelectedPlayMethod());
 
                 // Restart audio at loop position
@@ -1264,7 +1464,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private async void MainWindowViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         //Console.WriteLine(e.PropertyName);
-        if (e.PropertyName == nameof(CurrentSimaiFile))
+        if (e.PropertyName == nameof(CurrentSimaiFile) || e.PropertyName == nameof(Level))
         {
             Stop(false);
             lock(_fumenContentChangedSyncLock)

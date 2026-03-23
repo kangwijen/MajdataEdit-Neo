@@ -132,7 +132,4 @@ internal class MajSetting
     public float Slide_Level = 0.7f;
     public float Touch_Level = 0.7f;
     public double SFX_Latency_Compensation = 0.0545;
-    public int Center_Display_Mode = 0;
-    public int Play_Mode = 1;
-    public float Note_Speed = 7.5f;
 }
