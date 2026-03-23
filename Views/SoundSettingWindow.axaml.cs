@@ -26,7 +26,6 @@ public partial class SoundSettingWindow : Window
             viewModel.ExLevel = 0.7f;
             viewModel.TouchLevel = 0.7f;
             viewModel.HanabiLevel = 0.7f;
-            viewModel.SfxLatencyCompensation = 0.0545;
         }
     }
 

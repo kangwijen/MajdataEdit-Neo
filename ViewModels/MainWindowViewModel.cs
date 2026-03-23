@@ -225,9 +225,6 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private float hanabiLevel = 0.7f;
 
-    [ObservableProperty]
-    private double sfxLatencyCompensation = 0.0545;
-
     // 0 = Off, 1 = Combo
     [ObservableProperty]
     private int centerDisplayMode = 0;
@@ -274,6 +271,17 @@ public partial class MainWindowViewModel : ViewModelBase
             PlayModeIndex = _editorSetting.editorPlayMethod == EditorPlayMethod.DJAuto ? 1 : 0;
             NoteSpeed = _editorSetting.playSpeed;
             TouchSpeed = _editorSetting.touchSpeed;
+
+            // Sound settings defaults are persisted in EditorSetting.json as "Default_*" fields.
+            BgmLevel = _editorSetting.Default_BGM_Level;
+            AnswerLevel = _editorSetting.Default_Answer_Level;
+            JudgeLevel = _editorSetting.Default_Judge_Level;
+            BreakLevel = _editorSetting.Default_Break_Level;
+            BreakSlideLevel = _editorSetting.Default_Break_Slide_Level;
+            SlideLevel = _editorSetting.Default_Slide_Level;
+            ExLevel = _editorSetting.Default_Ex_Level;
+            TouchLevel = _editorSetting.Default_Touch_Level;
+            HanabiLevel = _editorSetting.Default_Hanabi_Level;
         }
         catch (Exception ex)
         {
@@ -343,6 +351,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnBgmLevelChanged(float value)
     {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.Default_BGM_Level = value;
+        SaveEditorSetting();
+
         if (_audioManager != null)
         {
             _audioManager.BgmLevel = value;
@@ -352,6 +364,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnAnswerLevelChanged(float value)
     {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.Default_Answer_Level = value;
+        SaveEditorSetting();
+
         if (_audioManager != null)
         {
             _audioManager.AnswerLevel = value;
@@ -361,6 +377,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnJudgeLevelChanged(float value)
     {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.Default_Judge_Level = value;
+        SaveEditorSetting();
+
         if (_audioManager != null)
         {
             _audioManager.JudgeLevel = value;
@@ -370,6 +390,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnBreakLevelChanged(float value)
     {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.Default_Break_Level = value;
+        SaveEditorSetting();
+
         if (_audioManager != null)
         {
             _audioManager.BreakLevel = value;
@@ -379,6 +403,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnBreakSlideLevelChanged(float value)
     {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.Default_Break_Slide_Level = value;
+        SaveEditorSetting();
+
         if (_audioManager != null)
         {
             _audioManager.BreakSlideLevel = value;
@@ -388,6 +416,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSlideLevelChanged(float value)
     {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.Default_Slide_Level = value;
+        SaveEditorSetting();
+
         if (_audioManager != null)
         {
             _audioManager.SlideLevel = value;
@@ -397,6 +429,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnExLevelChanged(float value)
     {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.Default_Ex_Level = value;
+        SaveEditorSetting();
+
         if (_audioManager != null)
         {
             _audioManager.ExLevel = value;
@@ -406,6 +442,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnTouchLevelChanged(float value)
     {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.Default_Touch_Level = value;
+        SaveEditorSetting();
+
         if (_audioManager != null)
         {
             _audioManager.TouchLevel = value;
@@ -415,18 +455,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnHanabiLevelChanged(float value)
     {
+        if (_isLoadingEditorSetting) return;
+        _editorSetting.Default_Hanabi_Level = value;
+        SaveEditorSetting();
+
         if (_audioManager != null)
         {
             _audioManager.HanabiLevel = value;
             _audioManager.UpdateAllVolumes();
-        }
-    }
-
-    partial void OnSfxLatencyCompensationChanged(double value)
-    {
-        if (_audioManager != null)
-        {
-            _audioManager.SfxLatencyCompensation = value;
         }
     }
 
@@ -489,6 +525,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (CurrentSimaiFile is null)
         {
             _dcRichPresence.Details = fallback;
+            _dcRichPresence.State = string.Empty;
             if (_dcRichPresence.Assets is not null)
                 _dcRichPresence.Assets.LargeImageText = fallback;
         }
@@ -503,11 +540,12 @@ public partial class MainWindowViewModel : ViewModelBase
             if (string.IsNullOrWhiteSpace(chartLevelText))
                 chartLevelText = "?";
 
-            var editingText = $"Editing {chartTitle} {difficultyText} {chartLevelText}";
-            _dcRichPresence.Details = editingText;
+            // Discord activity card uses `Details` (top line) and `State` (second line).
+            _dcRichPresence.Details = $"Editing: {chartTitle}";
+            _dcRichPresence.State = $"{difficultyText} {chartLevelText}";
 
             if (_dcRichPresence.Assets is not null)
-                _dcRichPresence.Assets.LargeImageText = editingText;
+                _dcRichPresence.Assets.LargeImageText = _dcRichPresence.State;
         }
 
         _dcRPCClient.SetPresence(_dcRichPresence);
@@ -566,6 +604,18 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             _audioManager = new AudioManager("SFX");
             _audioManager.LoadSfx();
+
+            // Apply persisted editor sound settings to the audio engine.
+            _audioManager.BgmLevel = BgmLevel;
+            _audioManager.AnswerLevel = AnswerLevel;
+            _audioManager.JudgeLevel = JudgeLevel;
+            _audioManager.BreakLevel = BreakLevel;
+            _audioManager.BreakSlideLevel = BreakSlideLevel;
+            _audioManager.SlideLevel = SlideLevel;
+            _audioManager.ExLevel = ExLevel;
+            _audioManager.TouchLevel = TouchLevel;
+            _audioManager.HanabiLevel = HanabiLevel;
+            _audioManager.UpdateAllVolumes();
         }
         catch (Exception ex)
         {
@@ -888,7 +938,6 @@ public partial class MainWindowViewModel : ViewModelBase
             Ex_Level = ExLevel,
             Touch_Level = TouchLevel,
             Hanabi_Level = HanabiLevel,
-            SFX_Latency_Compensation = SfxLatencyCompensation
         };
 
         var json = JsonConvert.SerializeObject(setting, Formatting.Indented);
@@ -916,7 +965,6 @@ public partial class MainWindowViewModel : ViewModelBase
             ExLevel = setting.Ex_Level;
             TouchLevel = setting.Touch_Level;
             HanabiLevel = setting.Hanabi_Level;
-            SfxLatencyCompensation = setting.SFX_Latency_Compensation;
 
             // Save updated settings to handle any version differences
             SaveSetting();

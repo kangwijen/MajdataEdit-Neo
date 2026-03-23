@@ -124,18 +124,6 @@
                     <TextBlock Grid.Column="1" Text="{Binding HanabiLevel, StringFormat={}{0:P0}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                 </Grid>
                 <Slider Minimum="0" Maximum="1" Value="{Binding HanabiLevel}"  Margin="0,0,0,20"/>
-
-                <!-- SFX Latency Compensation -->
-                <Grid Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="80"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="SFX Timing Delay (seconds)" VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="1" Text="{Binding SfxLatencyCompensation, StringFormat={}{0:F4}}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                </Grid>
-                <Slider Minimum="-0.2" Maximum="0.2" Value="{Binding SfxLatencyCompensation}" Margin="0,0,0,10"/>
-                <TextBlock Text="Negative values delay SFX, positive values advance SFX timing" FontSize="11" Foreground="Gray" Margin="0,0,0,10"/>
             </StackPanel>
         </ScrollViewer>
 
