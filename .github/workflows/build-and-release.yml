@@ -1,0 +1,161 @@
+name: Build
+run-name: Build editor
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (Windows)
+    runs-on: windows-latest
+
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      NUGET_PACKAGES: ${{ github.workspace }}\.nuget\packages
+      PROJECT_PATH: MajdataEdit-Neo.csproj
+      RUNTIME: win-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.sln', '**/*.csproj', '**/Directory.Packages.props', '**/nuget.config', '**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore "${{ env.PROJECT_PATH }}"
+
+      - name: Publish (framework-dependent)
+        shell: pwsh
+        run: |
+          $out = Join-Path "${{ github.workspace }}" "artifacts\publish\${{ env.RUNTIME }}\framework-dependent"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          dotnet publish "${{ env.PROJECT_PATH }}" -c Release -r "${{ env.RUNTIME }}" --self-contained false -o $out
+
+      - name: Publish (self-contained, single-file)
+        shell: pwsh
+        run: |
+          $out = Join-Path "${{ github.workspace }}" "artifacts\publish\${{ env.RUNTIME }}\self-contained-singlefile"
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          dotnet publish "${{ env.PROJECT_PATH }}" -c Release -r "${{ env.RUNTIME }}" --self-contained true -p:PublishSingleFile=true -o $out
+
+      - name: Zip publish outputs
+        shell: pwsh
+        run: |
+          $root = Join-Path "${{ github.workspace }}" "artifacts"
+          $pkgRoot = Join-Path $root "package"
+          $zipDir = Join-Path $root "zips"
+          New-Item -ItemType Directory -Force -Path $zipDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $pkgRoot | Out-Null
+
+          $fd = Join-Path $root "publish\${{ env.RUNTIME }}\framework-dependent"
+          $sc = Join-Path $root "publish\${{ env.RUNTIME }}\self-contained-singlefile"
+
+          $fdPkg = Join-Path $pkgRoot "MajdataEdit-Neo-${{ env.RUNTIME }}-framework-dependent"
+          $scPkg = Join-Path $pkgRoot "MajdataEdit-Neo-${{ env.RUNTIME }}-self-contained-singlefile"
+
+          if (Test-Path $fdPkg) { Remove-Item -Recurse -Force $fdPkg }
+          if (Test-Path $scPkg) { Remove-Item -Recurse -Force $scPkg }
+          New-Item -ItemType Directory -Force -Path $fdPkg | Out-Null
+          New-Item -ItemType Directory -Force -Path $scPkg | Out-Null
+
+          # Base app files from dotnet publish output
+          Copy-Item -Force -Recurse (Join-Path $fd "*") $fdPkg
+          Copy-Item -Force -Recurse (Join-Path $sc "*") $scPkg
+
+          # Unity-related folders and companion binaries expected next to the editor exe
+          $extraDirs = @(
+            "Skin",
+            "SFX",
+            "MonoBleedingEdge",
+            "MajdataView_Data"
+          )
+          foreach ($d in $extraDirs) {
+            $src = Join-Path "${{ github.workspace }}" $d
+            if (Test-Path $src) {
+              Copy-Item -Force -Recurse $src (Join-Path $fdPkg $d)
+              Copy-Item -Force -Recurse $src (Join-Path $scPkg $d)
+            }
+          }
+
+          $extraFiles = @(
+            "MajdataView.exe",
+            "UnityPlayer.dll",
+            "UnityCrashHandler64.exe",
+            "av_libglesv2.dll",
+            "libHarfBuzzSharp.dll",
+            "libonigwrap.dll",
+            "libSkiaSharp.dll",
+            "bass.dll"
+          )
+          foreach ($f in $extraFiles) {
+            $src = Join-Path "${{ github.workspace }}" $f
+            if (Test-Path $src) {
+              Copy-Item -Force $src $fdPkg
+              Copy-Item -Force $src $scPkg
+            }
+          }
+
+          $fdZip = Join-Path $zipDir "MajdataEdit-Neo-${{ env.RUNTIME }}-framework-dependent.zip"
+          $scZip = Join-Path $zipDir "MajdataEdit-Neo-${{ env.RUNTIME }}-self-contained-singlefile.zip"
+
+          if (Test-Path $fdZip) { Remove-Item -Force $fdZip }
+          if (Test-Path $scZip) { Remove-Item -Force $scZip }
+
+          Compress-Archive -Path (Join-Path $fdPkg "*") -DestinationPath $fdZip
+          Compress-Archive -Path (Join-Path $scPkg "*") -DestinationPath $scZip
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ env.RUNTIME }}-publish
+          path: artifacts\publish\${{ env.RUNTIME }}\**
+          if-no-files-found: error
+
+      - name: Upload zipped artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ env.RUNTIME }}-zips
+          path: artifacts\zips\*.zip
+          if-no-files-found: error
+
+  release:
+    name: Release (tag)
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download zipped artifacts
+        uses: actions/download-artifact@v5
+        with:
+          name: windows-win-x64-zips
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/*.zip
+
