@@ -52,7 +52,11 @@ internal static class ChartSerializer
         // Populate noteList for each timing point using the old getNotes() style parsing
         foreach (var timingPoint in timingPoints)
         {
-            timingPoint.noteList = GetNotesFromContent(timingPoint.notesContent, timingPoint.currentBpm, timingPoint.time);
+            if (timingPoint.noteList.Count == 0)
+            {
+                timingPoint.noteList =
+                    GetNotesFromContent(timingPoint.notesContent, timingPoint.currentBpm, timingPoint.time);
+            }
             majson.timingList.Add(timingPoint);
         }
     }
@@ -221,8 +225,9 @@ internal static class ChartSerializer
         }
         catch
         {
-            // If parsing fails, add a default note
-            simaiNotes.Add(new SimaiNote { noteContent = notesContent });
+            // On parse failure, return an empty list.
+            // This avoids injecting a dummy Tap note that would skew note counts.
+            return new List<SimaiNote>();
         }
         return simaiNotes;
     }
@@ -316,10 +321,15 @@ internal static class ChartSerializer
             simaiNote.slideTime = GetTimeFromBeats(noteText, currentBpm);
             var timeStarWait = GetStarWaitTime(noteText, currentBpm);
             simaiNote.slideStartTime = timing + timeStarWait;
-            if (noteText.Contains('!') || noteText.Contains('?'))
+            if (noteText.Contains('!'))
             {
                 simaiNote.isSlideNoHead = true;
-                noteText = noteText.Replace("!", "").Replace("?", "");
+                noteText = noteText.Replace("!", "");
+            }
+            else if (noteText.Contains('?'))
+            {
+                simaiNote.isSlideNoHead = true;
+                noteText = noteText.Replace("?", "");
             }
         }
 
@@ -328,12 +338,33 @@ internal static class ChartSerializer
         {
             if (simaiNote.noteType == MajsonNoteType.Slide)
             {
-                simaiNote.isSlideBreak = true;
+                // Legacy rule (MajdataEdit-master):
+                // In slide notes, "b" means "break-slide" only when immediately followed by '['.
+                // Otherwise treat it as a normal break (star-head break).
+                var startIndex = 0;
+                while ((startIndex = noteText.IndexOf('b', startIndex)) != -1)
+                {
+                    if (startIndex < noteText.Length - 1)
+                    {
+                        if (noteText[startIndex + 1] == '[')
+                            simaiNote.isSlideBreak = true;
+                        else
+                            simaiNote.isBreak = true;
+                    }
+                    else
+                    {
+                        // b at the end of slide syntax => break-slide
+                        simaiNote.isSlideBreak = true;
+                    }
+
+                    startIndex++;
+                }
             }
             else
             {
                 simaiNote.isBreak = true;
             }
+
             noteText = noteText.Replace("b", "");
         }
 

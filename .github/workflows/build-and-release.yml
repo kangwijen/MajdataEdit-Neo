@@ -80,37 +80,14 @@ jobs:
           Copy-Item -Force -Recurse (Join-Path $fd "*") $fdPkg
           Copy-Item -Force -Recurse (Join-Path $sc "*") $scPkg
 
-          # Unity-related folders and companion binaries expected next to the editor exe
-          $extraDirs = @(
-            "Skin",
-            "SFX",
-            "MonoBleedingEdge",
-            "MajdataView_Data"
-          )
-          foreach ($d in $extraDirs) {
-            $src = Join-Path "${{ github.workspace }}" $d
-            if (Test-Path $src) {
-              Copy-Item -Force -Recurse $src (Join-Path $fdPkg $d)
-              Copy-Item -Force -Recurse $src (Join-Path $scPkg $d)
-            }
-          }
-
-          $extraFiles = @(
-            "MajdataView.exe",
-            "UnityPlayer.dll",
-            "UnityCrashHandler64.exe",
-            "av_libglesv2.dll",
-            "libHarfBuzzSharp.dll",
-            "libonigwrap.dll",
-            "libSkiaSharp.dll",
-            "bass.dll"
-          )
-          foreach ($f in $extraFiles) {
-            $src = Join-Path "${{ github.workspace }}" $f
-            if (Test-Path $src) {
-              Copy-Item -Force $src $fdPkg
-              Copy-Item -Force $src $scPkg
-            }
+          # Unity player bundle: include the full MajdataView-build folder.
+          # The Unity player expects these files next to the editor executable.
+          $viewBuild = Join-Path "${{ github.workspace }}" "MajdataView-build"
+          if (Test-Path $viewBuild) {
+            Copy-Item -Force -Recurse (Join-Path $viewBuild "*") $fdPkg
+            Copy-Item -Force -Recurse (Join-Path $viewBuild "*") $scPkg
+          } else {
+            throw "MajdataView-build not found: $viewBuild. The workflow expects the Unity player output to be inside MajdataView-build."
           }
 
           $fdZip = Join-Path $zipDir "MajdataEdit-Neo-${{ env.RUNTIME }}-framework-dependent.zip"
