@@ -8,12 +8,13 @@
 - [x] **Play/Pause accumulation**: pressing play/pause twice while paused (without manually scrolling the waveform) causes note counts to accumulate.
 - [x] **Touch notes stuck**: touch notes can get stuck on MajdataView after unpausing in the above scenario, and can also stick as a "miss" during autoplay.
 - [x] **SFX timing**: reports that SFX may feel delayed.
-- [ ] **Text highlight timing**: the text line highlight can be too early.
-- [ ] **Follow Cursor behavior**: with Follow Cursor enabled during playback, clicking in the text editor can break following.
-- [ ] **Follow Cursor resets scroller**: with Follow Cursor enabled, placing a new note can reset the scroller back to the starting position.
-- [ ] **Copy resets scroller**: when you copy something, the scroller resets back to `0`.
+- [x] **Text highlight timing**: the text line highlight can be too early.
+- [x] **Follow Cursor behavior**: with Follow Cursor enabled during playback, clicking in the text editor can break following.
+- [x] **Follow Cursor resets scroller**: with Follow Cursor enabled, placing a new note can reset the scroller back to the starting position.
+- [x] **Copy resets scroller**: when you copy something, the scroller resets back to `0`.
 - [ ] **Loop-mode blank viewer**: in loop mode, the viewer can appear blank after a few loops, then return to normal.
 - [ ] **Loop marker beat snapping**: the loop marker does not snap to the beat.
+- [ ] **Follow Cursor editor focus**: in Follow Cursor mode, you have to click on the text editor for the cursor to appear or update properly.
 
 ## Planned features
 

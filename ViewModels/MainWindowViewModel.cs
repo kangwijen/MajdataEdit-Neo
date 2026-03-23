@@ -31,6 +31,11 @@ namespace MajdataEdit_Neo.ViewModels;
 
 public partial class MainWindowViewModel : ViewModelBase
 {
+    // True only during programmatic caret changes performed via SeekToDocPos.
+    // When this is false, manual editor caret changes while playing + FollowCursor are ignored
+    // to avoid desyncing highlight from audio playback time.
+    volatile bool _isProgrammaticCaretUpdate = false;
+
     public float Offset
     {
         get
@@ -740,31 +745,53 @@ public partial class MainWindowViewModel : ViewModelBase
     public void SetCaretTime(int rawPostion, bool setTrackTime)
     {
         if (CurrentSimaiChart is null) return;
+
+        // During playback with Follow Cursor enabled, ignore manual editor caret changes.
+        // This prevents clicks from desyncing the editor highlight from the audio-driven TrackTime.
+        if (IsPlaying && IsFollowCursor && !_isProgrammaticCaretUpdate) return;
+
         var timings = CurrentSimaiChart.CommaTimings.ToArray();
-        var nearestNote = timings.FirstOrDefault();
-        //theLine = theLine.OrderBy(o => o.RawTextPositionX).ToArray();
+
+        if (timings.Length == 0) return;
+
+        var foundByRange = false;
+        var nearestNote = timings[0];
+
+        // Try to locate the caret position within timing raw-text ranges.
         if (timings.Length >= 2)
         {
             for (int i = 0; i + 1 < timings.Length; i++)
             {
                 var note = timings[i];
                 var nextnote = timings[i + 1];
-                if(rawPostion <= note.RawTextPosition)
+
+                if (rawPostion <= note.RawTextPosition)
                 {
                     nearestNote = note;
+                    foundByRange = true;
                     break;
                 }
+
                 if (note.RawTextPosition < rawPostion && rawPostion <= nextnote.RawTextPosition)
                 {
                     nearestNote = nextnote;
+                    foundByRange = true;
                     break;
                 }
             }
         }
+
+        // If caret raw position doesn't fall into any range, snap to the closest RawTextPosition.
+        if (!foundByRange)
+            nearestNote = timings.MinBy(o => Math.Abs(o.RawTextPosition - rawPostion));
+
         if (nearestNote is null) return;
+
         CaretTime = nearestNote.Timing;
-        if (IsFollowCursor|| setTrackTime) {
-            //By pass Ctrl+Click if it's playing
+
+        if (setTrackTime)
+        {
+            // By pass Ctrl+Click if it's playing
             if (IsPlaying) return;
             Stop(false);
             TrackTime = CaretTime + Offset;
@@ -1259,10 +1286,24 @@ public partial class MainWindowViewModel : ViewModelBase
 
                 if (IsFollowCursor && CurrentSimaiChart != null && _textEditor != null)
                 {
-                    var nearestNote = CurrentSimaiChart.CommaTimings.MinBy(o => Math.Abs(o.Timing + Offset - TrackTime));
+                    // Avoid selecting a note that is slightly ahead of current playback time.
+                    // This prevents the "current line" highlight from appearing too early.
+                    var notePlusOffset = CurrentSimaiChart.CommaTimings
+                        .Select(o => new { Note = o, TimingPlusOffset = o.Timing + Offset })
+                        .ToArray();
+
+                    var nearestNote = notePlusOffset
+                        .Where(x => x.TimingPlusOffset <= TrackTime)
+                        .OrderByDescending(x => x.TimingPlusOffset)
+                        .Select(x => x.Note)
+                        .FirstOrDefault();
+
+                    if (nearestNote is null)
+                        nearestNote = notePlusOffset.OrderBy(x => x.TimingPlusOffset).Select(x => x.Note).FirstOrDefault();
                     if (nearestNote is null) continue;
 
                     var point = new Point(nearestNote.RawTextPositionX, nearestNote.RawTextPositionY);
+
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         SeekToDocPos(point, _textEditor!);
@@ -1436,10 +1477,23 @@ public partial class MainWindowViewModel : ViewModelBase
     }
     public void SeekToDocPos(Point position, TextEditor editor)
     {
-        var offset = editor.Document.GetOffset((int)position.Y + 1, (int)position.X);
-        editor.Select(offset, 0);
-        editor.ScrollTo((int)position.Y + 1, (int)position.X);
-        editor.Focus();
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            // SeekToDocPos is typically called on the UI thread.
+        }
+
+        _isProgrammaticCaretUpdate = true;
+        try
+        {
+            var offset = editor.Document.GetOffset((int)position.Y + 1, (int)position.X);
+            editor.Select(offset, 0);
+            editor.ScrollTo((int)position.Y + 1, (int)position.X);
+            editor.Focus();
+        }
+        finally
+        {
+            _isProgrammaticCaretUpdate = false;
+        }
     }
 
     // Loop region tracking

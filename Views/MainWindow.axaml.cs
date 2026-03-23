@@ -160,7 +160,9 @@ public partial class MainWindow : Window
         if (textEditor != null && viewModel != null)
         {
             var seek = textEditor.SelectionStart;
-            viewModel.SetCaretTime(seek, isCtrlKeyDown);
+            var hasSelection = textEditor.SelectionLength > 0;
+            // Ctrl during copy typically creates a selection; only treat Ctrl+click as an explicit "scrub to this caret" request.
+            viewModel.SetCaretTime(seek, isCtrlKeyDown && !hasSelection);
         }
     }
 
