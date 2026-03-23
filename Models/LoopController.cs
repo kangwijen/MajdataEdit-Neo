@@ -99,9 +99,9 @@ public class LoopController : ILoopController
 
     /// <summary>
     /// Maximum distance (in beats) for a time to be considered "close enough" to snap to a beat.
-    /// This is BPM-dependent - quarter of a beat for more precise snapping.
+    /// This is BPM-dependent - one full beat for snapping to beat lines.
     /// </summary>
-    private const double BEAT_SNAP_THRESHOLD_BEATS = 0.25;
+    private const double BEAT_SNAP_THRESHOLD_BEATS = 1.0;
 
     private LoopRegion? _currentRegion;
     private bool _isEnabled;

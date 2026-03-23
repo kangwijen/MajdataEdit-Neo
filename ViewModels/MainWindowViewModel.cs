@@ -1070,28 +1070,33 @@ public partial class MainWindowViewModel : ViewModelBase
             // Get loop start and convert to display time (add offset)
             var loopStart = _loopController.CurrentRegion.StartTime + Offset;
 
-            // Send Stop command to viewer to clear notes
-            await _viewerConnection.StopPlaybackAsync();
-            await Task.Delay(32); // Brief pause for viewer to process
-
-            // Stop audio
+            // Stop audio first to prevent audio drift
             if (_audioManager != null)
             {
                 _audioManager.StopSfxLoop();
                 _audioManager.StopBgm();
             }
 
-            // Reset time to loop start
-            playStartTime = loopStart;
-            TrackTime = loopStart;
-
-            // Regenerate chart and send Start command to viewer
+            // Pre-generate chart for new position
             if (CurrentSimaiFile != null)
             {
                 var majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
                 ChartSerializer.SaveMajdataJson(majson, _maidataDir);
-
                 var jsonPath = Path.Combine(_maidataDir, "majdata.json");
+
+                // OPTIMAL STRATEGY: Fire-and-forget Stop, then immediate Start
+                // This works because:
+                // 1. HTTP requests are queued and processed in order by the viewer
+                // 2. The Stop request will arrive ~1-2ms before Start
+                // 3. This minimal gap is enough for viewer to clear notes without visible flash
+                // 4. Don't await Stop - just send it and immediately send Start
+                _ = _viewerConnection.StopPlaybackAsync(); // Fire and forget
+
+                // Reset time AFTER sending stop (ensures old playback uses old time)
+                playStartTime = loopStart;
+                TrackTime = loopStart;
+
+                // Immediately start new playback - the viewer will process Stop first due to HTTP ordering
                 await _viewerConnection.StartPlaybackAsync(
                     jsonPath,
                     DateTime.Now,
