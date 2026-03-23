@@ -718,17 +718,23 @@ public partial class MainWindowViewModel : ViewModelBase
     public Point SlideTrackTime(double delta)
     {
         if (SongTrackInfo is null) return new Point();
-        var time = TrackTime - delta * 0.2 * TrackZoomLevel;
+        // Drag direction should map monotonically: positive delta increases time.
+        var computedTime = TrackTime + delta * 0.2 * TrackZoomLevel;
+        var time = computedTime;
         if (time < 0) time = 0;
         else if (time > SongTrackInfo.Length) time = SongTrackInfo.Length;
+
         if(_viewerConnection.IsViewerRunning)
         {
             Stop(false);
         }
         TrackTime = time;
         if (CurrentSimaiChart is null) return new Point();
-        var nearestNote = CurrentSimaiChart.CommaTimings.Where(o=> o.Timing + Offset - time < 0).MinBy(o => Math.Abs(o.Timing + Offset - time));
+        // Snap to the nearest note in time (both sides), avoiding a bias that makes one drag direction feel "sticky".
+        var nearestNote = CurrentSimaiChart.CommaTimings
+            .MinBy(o => Math.Abs(o.Timing + Offset - time));
         if (nearestNote is null) return new Point();
+
         return new Point(nearestNote.RawTextPositionX, nearestNote.RawTextPositionY);
     }
     public void SetCaretTime(int rawPostion, bool setTrackTime)

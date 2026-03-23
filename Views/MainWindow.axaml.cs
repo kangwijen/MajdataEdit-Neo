@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     TextEditor? textEditor;
     SimaiVisualizerControl? simaiVisual;
     LoopVisualizerOverlay? loopOverlay;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -169,12 +170,13 @@ public partial class MainWindow : Window
         if (viewModel == null || textEditor == null || sender is not SimaiVisualizerControl control) return;
         var point = e.GetCurrentPoint(control);
         var x = point.Position.X;
-        viewModel.IsPointerPressedSimaiVisual = point.Properties.IsLeftButtonPressed;
+        var isPressed = point.Properties.IsLeftButtonPressed;
+        viewModel.IsPointerPressedSimaiVisual = isPressed;
         if (lastX is null) lastX = x;
-        var delta = x - lastX;
-        if (point.Properties.IsLeftButtonPressed)
+        var delta = x - lastX.Value;
+        if (isPressed)
         {
-            var docseek = viewModel.SlideTrackTime((float)delta*10f/Width);
+            var docseek = viewModel.SlideTrackTime((float)delta * 10f / Width);
             viewModel.SeekToDocPos(docseek, textEditor);
         }
         lastX = x;

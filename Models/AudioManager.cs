@@ -400,6 +400,7 @@ class AudioManager : IDisposable
 
         // Sort by time
         sfxTimings = sfxTimings.OrderBy(t => t.Time).ToList();
+
     }
 
     public void StartSfxLoop()
@@ -453,9 +454,10 @@ class AudioManager : IDisposable
                     if (sfxTimings.Count > 0)
                     {
                         var timing = sfxTimings[0];
+                        var lag = timing.Time - currentTime;
 
                         // Don't touch this!!!!! this related to delay (from old code)
-                        if (timing.Time - currentTime <= SfxLatencyCompensation)
+                        if (lag <= SfxLatencyCompensation)
                         {
                             PlaySfxForTiming(timing);
                             sfxTimings.RemoveAt(0);

@@ -2,12 +2,12 @@
 
 ## Known bugs
 
-- [ ] **Waveform drag speed**: dragging the waveform backward is faster than dragging it forward.
+- [x] **Waveform drag speed**: dragging the waveform backward is faster than dragging it forward.
 - [x] **Break parsing**: `1bx-3[8:1]` is parsed incorrectly (expected "tap break", got "slide normal").
 - [x] **Note counts differ**: note counts differ depending on note type and between MajdataEdit vs MajdataEdit-Neo (suspected parser issue).
 - [x] **Play/Pause accumulation**: pressing play/pause twice while paused (without manually scrolling the waveform) causes note counts to accumulate.
 - [x] **Touch notes stuck**: touch notes can get stuck on MajdataView after unpausing in the above scenario, and can also stick as a "miss" during autoplay.
-- [ ] **SFX timing**: reports that SFX may feel delayed.
+- [x] **SFX timing**: reports that SFX may feel delayed.
 - [ ] **Text highlight timing**: the text line highlight can be too early.
 - [ ] **Follow Cursor behavior**: with Follow Cursor enabled during playback, clicking in the text editor can break following.
 - [ ] **Follow Cursor resets scroller**: with Follow Cursor enabled, placing a new note can reset the scroller back to the starting position.
