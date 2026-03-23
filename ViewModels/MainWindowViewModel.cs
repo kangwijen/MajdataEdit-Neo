@@ -228,6 +228,32 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private double sfxLatencyCompensation = 0.0545;
 
+    // 0 = Off, 1 = Combo
+    [ObservableProperty]
+    private int centerDisplayMode = 0;
+
+    // 0 = Classic/Default, 1 = DJAuto
+    [ObservableProperty]
+    private int playModeIndex = 1;
+
+    [ObservableProperty]
+    private float noteSpeed = 7.5f;
+
+    private EditorComboIndicator GetCenterDisplayIndicator()
+    {
+        return CenterDisplayMode == 1 ? EditorComboIndicator.Combo : EditorComboIndicator.None;
+    }
+
+    private EditorPlayMethod GetSelectedPlayMethod()
+    {
+        return PlayModeIndex switch
+        {
+            0 => EditorPlayMethod.Classic,
+            1 => EditorPlayMethod.DJAuto,
+            _ => EditorPlayMethod.DJAuto
+        };
+    }
+
     partial void OnBgmLevelChanged(float value)
     {
         if (_audioManager != null)
@@ -655,7 +681,10 @@ public partial class MainWindowViewModel : ViewModelBase
             Ex_Level = ExLevel,
             Touch_Level = TouchLevel,
             Hanabi_Level = HanabiLevel,
-            SFX_Latency_Compensation = SfxLatencyCompensation
+            SFX_Latency_Compensation = SfxLatencyCompensation,
+            Center_Display_Mode = CenterDisplayMode,
+            Play_Mode = PlayModeIndex,
+            Note_Speed = NoteSpeed
         };
 
         var json = JsonConvert.SerializeObject(setting, Formatting.Indented);
@@ -684,6 +713,10 @@ public partial class MainWindowViewModel : ViewModelBase
             TouchLevel = setting.Touch_Level;
             HanabiLevel = setting.Hanabi_Level;
             SfxLatencyCompensation = setting.SFX_Latency_Compensation;
+
+            CenterDisplayMode = setting.Center_Display_Mode;
+            PlayModeIndex = setting.Play_Mode;
+            NoteSpeed = setting.Note_Speed;
 
             // Save updated settings to handle any version differences
             SaveSetting();
@@ -820,13 +853,13 @@ public partial class MainWindowViewModel : ViewModelBase
                     jsonPath,
                     DateTime.Now,
                     (float)TrackTime,  // Playback position, not offset
-                    7.5f, // playSpeed
-                    7.5f, // touchSpeed
+                    NoteSpeed, // noteSpeed
+                    NoteSpeed, // touchSpeed
                     1.0f, // audioSpeed
                     0.6f, // backgroundCover
-                    EditorComboIndicator.None, // comboStatusType
+                    GetCenterDisplayIndicator(), // comboStatusType
                     false, // smoothSlideAnime
-                    EditorPlayMethod.DJAuto); // editorPlayMethod
+                    GetSelectedPlayMethod()); // editorPlayMethod
 
                 OnPlayStarted();
             }
@@ -898,13 +931,13 @@ public partial class MainWindowViewModel : ViewModelBase
                     jsonPath,
                     DateTime.Now,
                     (float)TrackTime,  // Playback position, not offset
-                    7.5f, // playSpeed
-                    7.5f, // touchSpeed
+                    NoteSpeed, // noteSpeed
+                    NoteSpeed, // touchSpeed
                     1.0f, // audioSpeed
                     0.6f, // backgroundCover
-                    EditorComboIndicator.None, // comboStatusType
+                    GetCenterDisplayIndicator(), // comboStatusType
                     false, // smoothSlideAnime
-                    EditorPlayMethod.DJAuto); // editorPlayMethod
+                    GetSelectedPlayMethod()); // editorPlayMethod
 
                 OnPlayStarted();
             }
@@ -1101,13 +1134,13 @@ public partial class MainWindowViewModel : ViewModelBase
                     jsonPath,
                     DateTime.Now,
                     (float)loopStart,
-                    7.5f, // playSpeed
-                    7.5f, // touchSpeed
+                    NoteSpeed, // noteSpeed
+                    NoteSpeed, // touchSpeed
                     1.0f, // audioSpeed
                     0.6f, // backgroundCover
-                    EditorComboIndicator.None,
+                    GetCenterDisplayIndicator(),
                     false,
-                    EditorPlayMethod.DJAuto);
+                    GetSelectedPlayMethod());
 
                 // Restart audio at loop position
                 if (_audioManager != null)

@@ -10,12 +10,19 @@
 - [ ] **SFX timing**: reports that SFX may feel delayed.
 - [ ] **Text highlight timing**: the text line highlight can be too early.
 - [ ] **Follow Cursor behavior**: with Follow Cursor enabled during playback, clicking in the text editor can break following.
+- [ ] **Follow Cursor resets scroller**: with Follow Cursor enabled, placing a new note can reset the scroller back to the starting position.
+- [ ] **Loop-mode blank viewer**: in loop mode, the viewer can appear blank after a few loops, then return to normal.
+- [ ] **Loop marker beat snapping**: the loop marker does not snap to the beat.
 
 ## Planned features
 
 - [ ] **Time signature support for the yellow guide lines**: allow non-4/4 by supporting configurable "yellow line" markers, possibly via a comment-based time signature syntax.
-- [ ] **Editor auto-wrap or auto-formatting**: split very long code lines into new lines when the window is small.
+- [x] **Editor auto-wrap or auto-formatting**: split very long code lines into new lines when the window is small.
 - [ ] **Start delay option**: optional delay (for example 10 seconds) after pressing play to make recording easier.
+- [ ] **Discord RPC**: display playback state via Discord Rich Presence.
+- [x] **Center display (Off/Combo)**: add a center display mode toggle between `Off` and `Combo`.
+- [x] **Changeable play mode (Default/DJAuto)**: add a play mode selector between `Default` and `DJAuto`.
+- [x] **Note speed change**: allow changing note speed via UI/setting.
 
 ## Acknowledgements
 

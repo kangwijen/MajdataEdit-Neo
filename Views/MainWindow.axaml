@@ -122,6 +122,22 @@
         <TextBox  Name="Designer" Text="{Binding Designer}"/>
         <Label  VerticalAlignment="Center">Offset</Label>
         <NumericUpDown  Name="First" Value="{Binding Offset}" Increment="0.01"/>
+        <Label  VerticalAlignment="Center">Note Speed</Label>
+        <NumericUpDown  Name="NoteSpeed" Value="{Binding NoteSpeed}" Minimum="0.1" Maximum="50" Increment="0.1"/>
+        <Label  VerticalAlignment="Center">Center Display</Label>
+        <ComboBox Name="CenterDisplay"
+                  Width="120" VerticalAlignment="Center"
+                  SelectedIndex="{Binding CenterDisplayMode}">
+          <ComboBoxItem Content="Off" />
+          <ComboBoxItem Content="Combo" />
+        </ComboBox>
+        <Label  VerticalAlignment="Center">Play Mode</Label>
+        <ComboBox Name="PlayMode"
+                  Width="120" VerticalAlignment="Center"
+                  SelectedIndex="{Binding PlayModeIndex}">
+          <ComboBoxItem Content="Default" />
+          <ComboBoxItem Content="DJAuto" />
+        </ComboBox>
         <CheckBox Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Margin="0 10 0 0"
                   IsChecked="{Binding IsFollowCursor}">Follow Cursor</CheckBox>
         <CheckBox Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Margin="0 5 0 0"
@@ -164,7 +180,7 @@
       <AvaloniaEdit:TextEditor Grid.Column="3" Grid.Row="1" Grid.RowSpan="3"
                                Document="{Binding FumenDocument}"
                                Name="Editor" BorderBrush="#50FFFFFF" BorderThickness="0.5"
-                               ShowLineNumbers="True" Margin="5 5 5 5" Padding="5" WordWrap="False"
+                               ShowLineNumbers="True" Margin="5 5 5 5" Padding="5" WordWrap="True"
                                FontFamily="Cascadia Code,Consolas,Menlo,Monospace"
                             >
         <AvaloniaEdit:TextEditor.ContextFlyout>
