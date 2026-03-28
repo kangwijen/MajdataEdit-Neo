@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Threading;
@@ -19,6 +20,9 @@ public partial class MainWindowViewModel
     private double? _pendingLoopStart;
     private bool _loopStartSet;
     private bool _hasLoopRegion;
+
+    /// <summary>Cancels delayed <see cref="OnPlayStarted"/> after record mode HTTP success (viewer intro window).</summary>
+    CancellationTokenSource? _recordIntroCts;
 
     public async void PlayPause(TextEditor textEditor)
     {
@@ -78,6 +82,7 @@ public partial class MainWindowViewModel
                 }
 
                 var jsonPath = Path.Combine(_maidataDir, "majdata.json");
+                IsRecordModeActive = false;
                 await _viewerConnection.StartPlaybackAsync(
                     jsonPath,
                     DateTime.Now,
@@ -91,6 +96,164 @@ public partial class MainWindowViewModel
                     GetSelectedPlayMethod());
 
                 OnPlayStarted();
+            }
+        }
+        finally
+        {
+            if (shouldRecoverPlayControl)
+                IsPlayControlEnabled = true;
+        }
+    }
+
+    /// <summary>
+    /// Like normal play, but uses MajdataView record mode: intro (title, artist, jacket, designer) then delayed start.
+    /// </summary>
+    public async void RecordMode(TextEditor textEditor)
+    {
+        bool shouldRecoverPlayControl = true;
+        try
+        {
+            IsPlayControlEnabled = false;
+            if (!await CheckViewerConnection())
+            {
+                return;
+            }
+
+            if (IsPlaying)
+            {
+                await _viewerConnection.PausePlaybackAsync();
+                if (_audioManager != null)
+                {
+                    _audioManager.PauseBgm();
+                    _audioManager.StopSfxLoop();
+                }
+
+                IsPlaying = false;
+                IsRecordModeActive = false;
+                IsPlayControlEnabled = true;
+                return;
+            }
+
+            shouldRecoverPlayControl = false;
+            playStartTime = TrackTime;
+            _textEditor = textEditor;
+
+            if (CurrentSimaiFile != null)
+            {
+                Models.Majson majson;
+                try
+                {
+                    majson = ChartSerializer.ConvertToMajson(CurrentSimaiFile, SelectedDifficulty);
+                    ChartSerializer.SaveMajdataJson(majson, _maidataDir);
+
+                    if (_audioManager != null)
+                    {
+                        var useOgg = File.Exists(Path.Combine(_maidataDir, "track.ogg"));
+                        var bgmPath = Path.Combine(_maidataDir, useOgg ? "track.ogg" : "track.mp3");
+                        _audioManager.LoadBgm(bgmPath);
+                        _audioManager.SetSfxOffset(Offset);
+                        _audioManager.GenerateSfxTimings(majson.timingList, playStartTime);
+                    }
+                }
+                catch (Exception)
+                {
+                    majson = new Models.Majson
+                    {
+                        title = CurrentSimaiFile.Title ?? "Test",
+                        artist = CurrentSimaiFile.Artist ?? "Test",
+                        timingList = new System.Collections.Generic.List<Models.SimaiTimingPoint>()
+                    };
+                    ChartSerializer.SaveMajdataJson(majson, _maidataDir);
+                }
+
+                var jsonPath = Path.Combine(_maidataDir, "majdata.json");
+                var introSec = _editorSetting.RecordIntroDelaySeconds ?? 5f;
+                if (introSec < 0f) introSec = 0f;
+                var startAt = DateTime.Now.AddSeconds(introSec);
+
+                var recordOk = await _viewerConnection.StartRecordingAsync(
+                    jsonPath,
+                    startAt,
+                    (float)TrackTime,
+                    _editorSetting.playSpeed,
+                    _editorSetting.touchSpeed,
+                    1.0f,
+                    _editorSetting.backgroundCover,
+                    GetCenterDisplayIndicator(),
+                    _editorSetting.SmoothSlideAnime,
+                    GetSelectedPlayMethod());
+
+                if (!recordOk)
+                {
+                    shouldRecoverPlayControl = true;
+                    return;
+                }
+
+                IsRecordModeActive = true;
+
+                // Do not set IsPlaying / IsPlayControlEnabled until OnPlayStarted — same as legacy Op_Button disabled
+                // during intro. Otherwise Play/Pause sends Pause while viewer is still in record intro.
+                _recordIntroCts?.Cancel();
+                _recordIntroCts = new CancellationTokenSource();
+                var introCt = _recordIntroCts.Token;
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var wait = startAt - DateTime.Now;
+                        if (wait > TimeSpan.Zero)
+                            await Task.Delay(wait, introCt);
+                        if (introCt.IsCancellationRequested)
+                        {
+                            await Dispatcher.UIThread.InvokeAsync(() => { IsRecordModeActive = false; });
+                            return;
+                        }
+
+                        // After Record+intro, viewer needed explicit Start (control 0) to kick gameplay.
+                        var kickOk = await _viewerConnection.StartPlaybackAsync(
+                            jsonPath,
+                            DateTime.Now,
+                            (float)playStartTime,
+                            _editorSetting.playSpeed,
+                            _editorSetting.touchSpeed,
+                            1.0f,
+                            _editorSetting.backgroundCover,
+                            GetCenterDisplayIndicator(),
+                            _editorSetting.SmoothSlideAnime,
+                            GetSelectedPlayMethod());
+
+                        if (!kickOk)
+                        {
+                            await Dispatcher.UIThread.InvokeAsync(() =>
+                            {
+                                IsRecordModeActive = false;
+                                IsPlayControlEnabled = true;
+                            });
+                            return;
+                        }
+
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            if (introCt.IsCancellationRequested)
+                            {
+                                IsRecordModeActive = false;
+                                return;
+                            }
+
+                            OnPlayStarted();
+                        });
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Dispatcher.UIThread.Post(() =>
+                        {
+                            IsRecordModeActive = false;
+                            if (!IsPlaying)
+                                IsPlayControlEnabled = true;
+                        });
+                    }
+                }, introCt);
             }
         }
         finally
@@ -153,6 +316,7 @@ public partial class MainWindowViewModel
                 }
 
                 var jsonPath = Path.Combine(_maidataDir, "majdata.json");
+                IsRecordModeActive = false;
                 await _viewerConnection.StartPlaybackAsync(
                     jsonPath,
                     DateTime.Now,
@@ -177,6 +341,9 @@ public partial class MainWindowViewModel
 
     private async void OnPlayStarted()
     {
+        _recordIntroCts?.Dispose();
+        _recordIntroCts = null;
+
         IsPlaying = true;
         IsPlayControlEnabled = true;
 
@@ -255,6 +422,7 @@ public partial class MainWindowViewModel
     {
         try
         {
+            _recordIntroCts?.Cancel();
             IsPlayControlEnabled = false;
 
             if (IsPlaying)
@@ -287,6 +455,7 @@ public partial class MainWindowViewModel
         }
         finally
         {
+            IsRecordModeActive = false;
             IsPlayControlEnabled = true;
         }
     }
@@ -295,6 +464,7 @@ public partial class MainWindowViewModel
     {
         await Task.Delay(32);
         IsPlaying = false;
+        IsRecordModeActive = false;
 
         if (_audioManager != null)
         {

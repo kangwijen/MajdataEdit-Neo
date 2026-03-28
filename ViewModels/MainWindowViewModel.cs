@@ -206,6 +206,10 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isPlaying = false;
 
+    /// <summary>True after Record Mode successfully arms the viewer until stop, song end, or starting normal play.</summary>
+    [ObservableProperty]
+    private bool isRecordModeActive = false;
+
     // Audio level properties
     [ObservableProperty]
     private float bgmLevel = 0.7f;

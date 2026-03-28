@@ -47,7 +47,7 @@
             MaterialOpacity="0.75" />
       </ExperimentalAcrylicBorder.Material>
     </ExperimentalAcrylicBorder>
-    <Grid RowDefinitions="20,100,*,60,100"
+    <Grid RowDefinitions="20,100,*,44,60,100"
           ColumnDefinitions="5,60,60,*" ZIndex="5" IsVisible="{Binding IsLoaded}">
       <Menu Grid.Row="0" Grid.ColumnSpan="4">
         <MenuItem Header="_File" >
@@ -91,6 +91,9 @@
             </MenuItem.Icon>
           </MenuItem>
           <Separator/>
+          <MenuItem Header="Record Mode" CommandParameter="{Binding #Editor}" Command="{Binding RecordMode}"
+                    IsEnabled="{Binding IsPlayControlEnabled}"
+                    InputGesture="{Binding RecordModeKey, Converter={StaticResource KeyGestureConverter}}"/>
           <MenuItem Header="Play / Pause" CommandParameter="{Binding #Editor}" Command="{Binding PlayPause}"
                     IsEnabled="{Binding IsPlayControlEnabled}"
                     InputGesture="{Binding PlayPauseKey, Converter={StaticResource KeyGestureConverter}}"/>
@@ -128,7 +131,7 @@
         </MenuItem>
       </Menu>
 
-      <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Grid.RowSpan="8">
+      <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Grid.RowSpan="6">
         <Label Height="100" Name="Time" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center"
                Content="{Binding DisplayTime}" Padding="0 30 0 0 "/>
         <Label VerticalAlignment="Center">Difficulty</Label>
@@ -179,20 +182,27 @@
       </StackPanel>
 
 
-      <Button x:Name="BtnSendViewer" IsEnabled="{Binding IsPlayControlEnabled}" Grid.Row="3" Grid.Column="1" Height="50" Width="50" Margin="5"
+      <Button x:Name="BtnRecordMode" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Height="34" Margin="5,2"
+              IsEnabled="{Binding IsPlayControlEnabled}"
+              CommandParameter="{Binding #Editor}" Command="{Binding RecordMode}"
+              ToolTip.Tip="{Binding RecordModeKey, StringFormat='Record Mode: intro then start ({0})'}">
+        <TextBlock Text="Record Mode" TextAlignment="Center" VerticalAlignment="Center" FontSize="12"/>
+      </Button>
+
+      <Button x:Name="BtnSendViewer" IsEnabled="{Binding IsPlayControlEnabled}" Grid.Row="4" Grid.Column="1" Height="50" Width="50" Margin="5"
               Command="{Binding Stop}"
               ToolTip.Tip="{Binding SendViewerKey, StringFormat='Stop viewer ({0})'}">
         <PathIcon Width="13" Data="{StaticResource stop}"/>
       </Button>
-      <Button x:Name="BtnPlayPause" IsEnabled="{Binding IsPlayControlEnabled}" Grid.Row="3" Grid.Column="2" Height="50" Width="50" Margin="5"
+      <Button x:Name="BtnPlayPause" IsEnabled="{Binding IsPlayControlEnabled}" Grid.Row="4" Grid.Column="2" Height="50" Width="50" Margin="5"
               CommandParameter="{Binding #Editor}" Command="{Binding PlayPause}"
               ToolTip.Tip="{Binding PlayPauseKey, StringFormat='Play / pause ({0})'}">
         <PathIcon Data="{StaticResource play_pause}"/>
       </Button>
 
       <!-- HotKey gestures are applied in code-behind (KeyGesture.Parse); strings come from EditorSetting.json -->
-      <Button x:Name="BtnDecSpeed" IsVisible="False" IsEnabled="{Binding IsPlayControlEnabled}" Grid.Row="3" Grid.Column="3" Command="{Binding DecreasePlaybackSpeed}"/>
-      <Button x:Name="BtnIncSpeed" IsVisible="False" IsEnabled="{Binding IsPlayControlEnabled}" Grid.Row="3" Grid.Column="3" Command="{Binding IncreasePlaybackSpeed}"/>
+      <Button x:Name="BtnDecSpeed" IsVisible="False" IsEnabled="{Binding IsPlayControlEnabled}" Grid.Row="4" Grid.Column="3" Command="{Binding DecreasePlaybackSpeed}"/>
+      <Button x:Name="BtnIncSpeed" IsVisible="False" IsEnabled="{Binding IsPlayControlEnabled}" Grid.Row="4" Grid.Column="3" Command="{Binding IncreasePlaybackSpeed}"/>
 
       <Button x:Name="BtnMirrorLR" IsVisible="False" CommandParameter="{Binding #Editor}" Command="{Binding MirrorHorizontal}" />
       <Button x:Name="BtnMirrorUD" IsVisible="False" CommandParameter="{Binding #Editor}" Command="{Binding MirrorVertical}" />
@@ -202,8 +212,9 @@
 
       <Button x:Name="BtnSaveHk" IsVisible="False" Command="{Binding SaveFile}" />
       <Button x:Name="BtnPlayStopHk" IsVisible="False" IsEnabled="{Binding IsPlayControlEnabled}" Command="{Binding PlayStop}" CommandParameter="{Binding #Editor}" />
+      <Button x:Name="BtnRecordModeHk" IsVisible="False" IsEnabled="{Binding IsPlayControlEnabled}" Command="{Binding RecordMode}" CommandParameter="{Binding #Editor}" />
 
-      <AvaloniaEdit:TextEditor Grid.Column="3" Grid.Row="1" Grid.RowSpan="3"
+      <AvaloniaEdit:TextEditor Grid.Column="3" Grid.Row="1" Grid.RowSpan="4"
                                Document="{Binding FumenDocument}"
                                Name="Editor" BorderBrush="#50FFFFFF" BorderThickness="0.5"
                                ShowLineNumbers="True" Margin="5 5 5 5" Padding="5" WordWrap="True"
@@ -249,7 +260,7 @@
 
 
       <controls:SimaiVisualizerControl Name="SimaiVisual"
-                                       Height="100" Grid.Row="4" Grid.ColumnSpan="4"
+                                       Height="100" Grid.Row="5" Grid.ColumnSpan="4"
                                        Time="{Binding TrackTime}" TrackIf="{Binding SongTrackInfo}"
                                        ZoomLevel="{Binding TrackZoomLevel}" SimaiChart="{Binding CurrentSimaiChart}"
                                        Offset="{Binding Offset}" CaretTime="{Binding CaretTime}" IsAnimated ="{Binding IsAnimated}"
@@ -259,7 +270,7 @@
 
       <!-- Loop visualizer overlay for right-click drag selection -->
       <controls:LoopVisualizerOverlay Name="LoopOverlay"
-                                        Grid.Row="4" Grid.ColumnSpan="4"
+                                        Grid.Row="5" Grid.ColumnSpan="4"
                                         Height="100"
                                         ZIndex="10"
                                         LoopRegion="{Binding LoopViewModel.CurrentRegion}"
@@ -268,7 +279,7 @@
                                         Offset="{Binding Offset}"
                                         SongLength="{Binding SongTrackInfo.Length}"
                                         IsHitTestVisible="True"/>
-      <DockPanel Grid.Row="4" >
+      <DockPanel Grid.Row="5" >
         <Button Name="ZoomOut" DockPanel.Dock="Bottom" Width="30" Height="30" Margin="10">
           <PathIcon Width="8" Data="{StaticResource zoom_out}"/>
         </Button>

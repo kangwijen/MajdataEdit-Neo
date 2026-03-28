@@ -86,7 +86,12 @@ public partial class MainWindow : Window
                 {
                     UpdateLoopButtonColors();
                 }
+                if (args.PropertyName == nameof(viewModel.IsRecordModeActive))
+                {
+                    UpdateRecordModeButtonColors();
+                }
             };
+            UpdateRecordModeButtonColors();
         }
 
         ApplyEditorHotKeysFromViewModel();
@@ -110,6 +115,7 @@ public partial class MainWindow : Window
         TryApplyHotKey(this.FindControl<Button>("BtnMirrorCcw45Hk"), viewModel.MirrorCcw45Key);
         TryApplyHotKey(this.FindControl<Button>("BtnSaveHk"), viewModel.SaveKey);
         TryApplyHotKey(this.FindControl<Button>("BtnPlayStopHk"), viewModel.PlayStopKey);
+        TryApplyHotKey(this.FindControl<Button>("BtnRecordModeHk"), viewModel.RecordModeKey);
     }
 
     private static void TryApplyHotKey(Button? button, string? gestureString)
@@ -151,6 +157,25 @@ public partial class MainWindow : Window
                 loopEndBtn.Background = new SolidColorBrush(Color.Parse("#DDDDDD"));
                 loopEndBtn.Foreground = new SolidColorBrush(Colors.Black);
             }
+        }
+    }
+
+    private void UpdateRecordModeButtonColors()
+    {
+        if (viewModel == null) return;
+
+        var btn = this.FindControl<Button>("BtnRecordMode");
+        if (btn == null) return;
+
+        if (viewModel.IsRecordModeActive)
+        {
+            btn.Background = new SolidColorBrush(Color.Parse("#00CC00"));
+            btn.Foreground = new SolidColorBrush(Colors.White);
+        }
+        else
+        {
+            btn.Background = new SolidColorBrush(Color.Parse("#DDDDDD"));
+            btn.Foreground = new SolidColorBrush(Colors.Black);
         }
     }
 

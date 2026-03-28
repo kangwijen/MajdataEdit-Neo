@@ -8,6 +8,9 @@ internal class EditorSetting
     public bool AutoCheckUpdate = true;
     public float backgroundCover = 0.6f;
     public int ChartRefreshDelay = 1000;
+
+    /// <summary>Seconds to add to viewer <c>startAt</c> for record mode (legacy MajdataEdit used 5s). Null if omitted from JSON.</summary>
+    public float? RecordIntroDelaySeconds = null;
     public EditorComboIndicator comboStatusType = EditorComboIndicator.None;
     public EditorPlayMethod editorPlayMethod = EditorPlayMethod.DJAuto;
 
@@ -39,6 +42,7 @@ internal class EditorSetting
 
     public string PlayPauseKey = "Alt+Shift+C";
     public string PlayStopKey = "Alt+Shift+X";
+    public string RecordModeKey = "Alt+Shift+V";
     public string SaveKey = "Ctrl+s";
     public string SendViewerKey = "Alt+Shift+Z";
 

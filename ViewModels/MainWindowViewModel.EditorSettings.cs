@@ -24,6 +24,7 @@ public partial class MainWindowViewModel
 
     public string PlayPauseKey => _editorSetting.PlayPauseKey;
     public string PlayStopKey => _editorSetting.PlayStopKey;
+    public string RecordModeKey => _editorSetting.RecordModeKey;
     public string SendViewerKey => _editorSetting.SendViewerKey;
     public string SaveKey => _editorSetting.SaveKey;
 
@@ -220,6 +221,7 @@ public partial class MainWindowViewModel
             }
 
             var jsonPath = Path.Combine(_maidataDir, "majdata.json");
+            IsRecordModeActive = false;
             await _viewerConnection.StartPlaybackAsync(
                 jsonPath,
                 DateTime.Now,
