@@ -246,6 +246,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly string _editorSettingFilename = "EditorSetting.json";
     private EditorSetting _editorSetting = new();
     private bool _isLoadingEditorSetting;
+    /// <summary>While true, Sound Settings sliders may fire spurious writes during attach; do not persist or touch the audio engine.</summary>
+    private bool _isSoundDialogAttaching;
 
     // Expose hotkey strings to XAML (HotKey property accepts these formats).
     public string DecreasePlaybackSpeedKey => _editorSetting.DecreasePlaybackSpeedKey;
@@ -486,9 +488,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnBgmLevelChanged(float value)
     {
-        if (_isLoadingEditorSetting) return;
-        _editorSetting.Default_BGM_Level = value;
-        SaveEditorSetting();
+        if (!_isLoadingEditorSetting && !_isSoundDialogAttaching)
+        {
+            _editorSetting.Default_BGM_Level = value;
+            SaveEditorSetting();
+        }
+
+        if (_isLoadingEditorSetting)
+            return;
+
+        if (_isSoundDialogAttaching)
+            return;
 
         if (_audioManager != null)
         {
@@ -499,9 +509,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnAnswerLevelChanged(float value)
     {
-        if (_isLoadingEditorSetting) return;
-        _editorSetting.Default_Answer_Level = value;
-        SaveEditorSetting();
+        if (!_isLoadingEditorSetting && !_isSoundDialogAttaching)
+        {
+            _editorSetting.Default_Answer_Level = value;
+            SaveEditorSetting();
+        }
+
+        if (_isLoadingEditorSetting)
+            return;
+
+        if (_isSoundDialogAttaching)
+            return;
 
         if (_audioManager != null)
         {
@@ -512,9 +530,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnJudgeLevelChanged(float value)
     {
-        if (_isLoadingEditorSetting) return;
-        _editorSetting.Default_Judge_Level = value;
-        SaveEditorSetting();
+        if (!_isLoadingEditorSetting && !_isSoundDialogAttaching)
+        {
+            _editorSetting.Default_Judge_Level = value;
+            SaveEditorSetting();
+        }
+
+        if (_isLoadingEditorSetting)
+            return;
+
+        if (_isSoundDialogAttaching)
+            return;
 
         if (_audioManager != null)
         {
@@ -525,9 +551,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnBreakLevelChanged(float value)
     {
-        if (_isLoadingEditorSetting) return;
-        _editorSetting.Default_Break_Level = value;
-        SaveEditorSetting();
+        if (!_isLoadingEditorSetting && !_isSoundDialogAttaching)
+        {
+            _editorSetting.Default_Break_Level = value;
+            SaveEditorSetting();
+        }
+
+        if (_isLoadingEditorSetting)
+            return;
+
+        if (_isSoundDialogAttaching)
+            return;
 
         if (_audioManager != null)
         {
@@ -538,9 +572,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnBreakSlideLevelChanged(float value)
     {
-        if (_isLoadingEditorSetting) return;
-        _editorSetting.Default_Break_Slide_Level = value;
-        SaveEditorSetting();
+        if (!_isLoadingEditorSetting && !_isSoundDialogAttaching)
+        {
+            _editorSetting.Default_Break_Slide_Level = value;
+            SaveEditorSetting();
+        }
+
+        if (_isLoadingEditorSetting)
+            return;
+
+        if (_isSoundDialogAttaching)
+            return;
 
         if (_audioManager != null)
         {
@@ -551,9 +593,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSlideLevelChanged(float value)
     {
-        if (_isLoadingEditorSetting) return;
-        _editorSetting.Default_Slide_Level = value;
-        SaveEditorSetting();
+        if (!_isLoadingEditorSetting && !_isSoundDialogAttaching)
+        {
+            _editorSetting.Default_Slide_Level = value;
+            SaveEditorSetting();
+        }
+
+        if (_isLoadingEditorSetting)
+            return;
+
+        if (_isSoundDialogAttaching)
+            return;
 
         if (_audioManager != null)
         {
@@ -564,9 +614,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnExLevelChanged(float value)
     {
-        if (_isLoadingEditorSetting) return;
-        _editorSetting.Default_Ex_Level = value;
-        SaveEditorSetting();
+        if (!_isLoadingEditorSetting && !_isSoundDialogAttaching)
+        {
+            _editorSetting.Default_Ex_Level = value;
+            SaveEditorSetting();
+        }
+
+        if (_isLoadingEditorSetting)
+            return;
+
+        if (_isSoundDialogAttaching)
+            return;
 
         if (_audioManager != null)
         {
@@ -577,9 +635,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnTouchLevelChanged(float value)
     {
-        if (_isLoadingEditorSetting) return;
-        _editorSetting.Default_Touch_Level = value;
-        SaveEditorSetting();
+        if (!_isLoadingEditorSetting && !_isSoundDialogAttaching)
+        {
+            _editorSetting.Default_Touch_Level = value;
+            SaveEditorSetting();
+        }
+
+        if (_isLoadingEditorSetting)
+            return;
+
+        if (_isSoundDialogAttaching)
+            return;
 
         if (_audioManager != null)
         {
@@ -590,9 +656,17 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnHanabiLevelChanged(float value)
     {
-        if (_isLoadingEditorSetting) return;
-        _editorSetting.Default_Hanabi_Level = value;
-        SaveEditorSetting();
+        if (!_isLoadingEditorSetting && !_isSoundDialogAttaching)
+        {
+            _editorSetting.Default_Hanabi_Level = value;
+            SaveEditorSetting();
+        }
+
+        if (_isLoadingEditorSetting)
+            return;
+
+        if (_isSoundDialogAttaching)
+            return;
 
         if (_audioManager != null)
         {
@@ -1119,18 +1193,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
             SelectedDifficulty = setting.lastEditDiff;
             TrackTime = setting.lastEditTime;
-            BgmLevel = setting.BGM_Level;
-            AnswerLevel = setting.Answer_Level;
-            JudgeLevel = setting.Judge_Level;
-            BreakLevel = setting.Break_Level;
-            BreakSlideLevel = setting.Break_Slide_Level;
-            SlideLevel = setting.Slide_Level;
-            ExLevel = setting.Ex_Level;
-            TouchLevel = setting.Touch_Level;
-            HanabiLevel = setting.Hanabi_Level;
 
-            // Save updated settings to handle any version differences
-            SaveSetting();
+            // Do not apply majSetting.json volume fields to the audio engine: they desynced global
+            // EditorSetting.json (VM) from playback until the user opened Settings → Audio.
+            // Volumes always follow VM / EditorSetting; majSetting still stores them on SaveSetting for portability.
+            ApplyViewModelAudioLevelsToAudioEngine();
         }
         catch (Exception)
         {
@@ -1143,14 +1210,88 @@ public partial class MainWindowViewModel : ViewModelBase
         new BpmTapWindow().Show();
     }
 
+    /// <summary>Copies global VM levels (EditorSetting.json) to the audio engine.</summary>
+    void ApplyViewModelAudioLevelsToAudioEngine()
+    {
+        if (_audioManager is null) return;
+        _audioManager.BgmLevel = BgmLevel;
+        _audioManager.AnswerLevel = AnswerLevel;
+        _audioManager.JudgeLevel = JudgeLevel;
+        _audioManager.BreakLevel = BreakLevel;
+        _audioManager.BreakSlideLevel = BreakSlideLevel;
+        _audioManager.SlideLevel = SlideLevel;
+        _audioManager.ExLevel = ExLevel;
+        _audioManager.TouchLevel = TouchLevel;
+        _audioManager.HanabiLevel = HanabiLevel;
+        _audioManager.UpdateAllVolumes();
+    }
+
     public async void OpenSoundSettingWindow()
     {
         var mainWindow = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
         if (mainWindow?.MainWindow is null) return;
 
+        // Snapshot persisted globals so slider template/bind init cannot overwrite EditorSetting.json (logs showed
+        // nine SaveEditorSetting calls to 0.7 in one ms when the dialog opened).
+        var snapBgm = _editorSetting.Default_BGM_Level;
+        var snapAnswer = _editorSetting.Default_Answer_Level;
+        var snapJudge = _editorSetting.Default_Judge_Level;
+        var snapBreak = _editorSetting.Default_Break_Level;
+        var snapBreakSlide = _editorSetting.Default_Break_Slide_Level;
+        var snapSlide = _editorSetting.Default_Slide_Level;
+        var snapEx = _editorSetting.Default_Ex_Level;
+        var snapTouch = _editorSetting.Default_Touch_Level;
+        var snapHanabi = _editorSetting.Default_Hanabi_Level;
+
+        ApplyViewModelAudioLevelsToAudioEngine();
+
+        _isSoundDialogAttaching = true;
         var window = new SoundSettingWindow();
         window.DataContext = this;
-        await window.ShowDialog(mainWindow.MainWindow);
+        window.Opened += (_, _) =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                _isLoadingEditorSetting = true;
+                try
+                {
+                    _editorSetting.Default_BGM_Level = snapBgm;
+                    _editorSetting.Default_Answer_Level = snapAnswer;
+                    _editorSetting.Default_Judge_Level = snapJudge;
+                    _editorSetting.Default_Break_Level = snapBreak;
+                    _editorSetting.Default_Break_Slide_Level = snapBreakSlide;
+                    _editorSetting.Default_Slide_Level = snapSlide;
+                    _editorSetting.Default_Ex_Level = snapEx;
+                    _editorSetting.Default_Touch_Level = snapTouch;
+                    _editorSetting.Default_Hanabi_Level = snapHanabi;
+                    BgmLevel = snapBgm;
+                    AnswerLevel = snapAnswer;
+                    JudgeLevel = snapJudge;
+                    BreakLevel = snapBreak;
+                    BreakSlideLevel = snapBreakSlide;
+                    SlideLevel = snapSlide;
+                    ExLevel = snapEx;
+                    TouchLevel = snapTouch;
+                    HanabiLevel = snapHanabi;
+                }
+                finally
+                {
+                    _isLoadingEditorSetting = false;
+                }
+
+                _isSoundDialogAttaching = false;
+                ApplyViewModelAudioLevelsToAudioEngine();
+            }, DispatcherPriority.Loaded);
+        };
+
+        try
+        {
+            await window.ShowDialog(mainWindow.MainWindow);
+        }
+        finally
+        {
+            _isSoundDialogAttaching = false;
+        }
     }
 
     public async void OpenPlayerSettingsWindow()
