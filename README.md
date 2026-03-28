@@ -25,7 +25,8 @@
 - [x] **Center display (Off/Combo)**: add a center display mode toggle between `Off` and `Combo`.
 - [x] **Changeable play mode (Default/DJAuto)**: add a play mode selector between `Default` and `DJAuto`.
 - [x] **Note speed change**: allow changing note speed via UI/setting.
-- [x] **Editor settings**: add persistent editor settings using JSON file
+- [x] **Editor settings**: add persistent editor settings using JSON file.
+- [x] **Keybindings shortcut customization**: configurable shortcuts in `EditorSetting.json`, the **Edit** and **File** menus show each shortcut on the right via `InputGesture`, and the play/stop toolbar buttons still have tooltips.
 
 ## Acknowledgements
 

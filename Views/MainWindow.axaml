@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:AvaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
         xmlns:controls="clr-namespace:MajdataEdit_Neo.Controls"
+        xmlns:conv="clr-namespace:MajdataEdit_Neo.Converters"
         mc:Ignorable="d" d:DesignWidth="750" d:DesignHeight="580"
         MinHeight="580"
         MinWidth="750"
@@ -22,6 +23,7 @@
     <vm:MainWindowViewModel/>
   </Design.DataContext>
   <Window.Resources>
+    <conv:KeyGestureStringConverter x:Key="KeyGestureConverter" />
     <StreamGeometry x:Key="play_pause">M200-312v-336l240 168-240 168Zm320-8v-320h80v320h-80Zm160 0v-320h80v320h-80Z</StreamGeometry>
     <StreamGeometry x:Key="stop">M320-640v320-320Zm-80 400v-480h480v480H240Zm80-80h320v-320H320v320Z</StreamGeometry>
     <StreamGeometry x:Key="zoom_in">M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z</StreamGeometry>
@@ -51,37 +53,59 @@
         <MenuItem Header="_File" >
           <MenuItem Header="_New" Command="{Binding NewFile}"/>
           <MenuItem Header="_Open" Command="{Binding OpenFile}"/>
-          <MenuItem Header="_Save" Command="{Binding SaveFile}"/>
+          <MenuItem Header="_Save" Command="{Binding SaveFile}"
+                    InputGesture="{Binding SaveKey, Converter={StaticResource KeyGestureConverter}}"/>
           <Separator/>
           <MenuItem Header="_Export Video"/>
           <MenuItem Header="_Upload to Majnet"/>
         </MenuItem>
         <MenuItem Header="_Edit">
-          <MenuItem Header="Mirror Horizontally" CommandParameter="{Binding #Editor}" Command="{Binding MirrorHorizontal}">
+          <MenuItem Header="Mirror Horizontally" CommandParameter="{Binding #Editor}" Command="{Binding MirrorHorizontal}"
+                    InputGesture="{Binding MirrorLeftRightKey, Converter={StaticResource KeyGestureConverter}}">
             <MenuItem.Icon>
               <PathIcon Data="{StaticResource mirror_h}"/>
             </MenuItem.Icon>
           </MenuItem>
-          <MenuItem Header="Mirror Vertically" CommandParameter="{Binding #Editor}" Command="{Binding MirrorVertical}">
+          <MenuItem Header="Mirror Vertically" CommandParameter="{Binding #Editor}" Command="{Binding MirrorVertical}"
+                    InputGesture="{Binding MirrorUpDownKey, Converter={StaticResource KeyGestureConverter}}">
             <MenuItem.Icon>
               <PathIcon Data="{StaticResource mirror_v}"/>
             </MenuItem.Icon>
           </MenuItem>
-          <MenuItem Header="Mirror 180°" CommandParameter="{Binding #Editor}" Command="{Binding Mirror180}">
+          <MenuItem Header="Mirror 180°" CommandParameter="{Binding #Editor}" Command="{Binding Mirror180}"
+                    InputGesture="{Binding Mirror180Key, Converter={StaticResource KeyGestureConverter}}">
             <MenuItem.Icon>
               <PathIcon Data="{StaticResource mirror_180}"/>
             </MenuItem.Icon>
           </MenuItem>
-          <MenuItem Header="Rotate 45°" CommandParameter="{Binding #Editor}" Command="{Binding Turn45}">
+          <MenuItem Header="Rotate 45°" CommandParameter="{Binding #Editor}" Command="{Binding Turn45}"
+                    InputGesture="{Binding Mirror45Key, Converter={StaticResource KeyGestureConverter}}">
             <MenuItem.Icon>
               <PathIcon Data="{StaticResource rotate_r}"/>
             </MenuItem.Icon>
           </MenuItem>
-          <MenuItem Header="Rotate -45°" CommandParameter="{Binding #Editor}" Command="{Binding TurnNegative45}">
+          <MenuItem Header="Rotate -45°" CommandParameter="{Binding #Editor}" Command="{Binding TurnNegative45}"
+                    InputGesture="{Binding MirrorCcw45Key, Converter={StaticResource KeyGestureConverter}}">
             <MenuItem.Icon>
               <PathIcon Data="{StaticResource rotate_l}"/>
             </MenuItem.Icon>
           </MenuItem>
+          <Separator/>
+          <MenuItem Header="Play / Pause" CommandParameter="{Binding #Editor}" Command="{Binding PlayPause}"
+                    IsEnabled="{Binding IsPlayControlEnabled}"
+                    InputGesture="{Binding PlayPauseKey, Converter={StaticResource KeyGestureConverter}}"/>
+          <MenuItem Header="Stop viewer" Command="{Binding Stop}"
+                    IsEnabled="{Binding IsPlayControlEnabled}"
+                    InputGesture="{Binding SendViewerKey, Converter={StaticResource KeyGestureConverter}}"/>
+          <MenuItem Header="Play stop" CommandParameter="{Binding #Editor}" Command="{Binding PlayStop}"
+                    IsEnabled="{Binding IsPlayControlEnabled}"
+                    InputGesture="{Binding PlayStopKey, Converter={StaticResource KeyGestureConverter}}"/>
+          <MenuItem Header="Note speed -" Command="{Binding DecreasePlaybackSpeed}"
+                    IsEnabled="{Binding IsPlayControlEnabled}"
+                    InputGesture="{Binding DecreasePlaybackSpeedKey, Converter={StaticResource KeyGestureConverter}}"/>
+          <MenuItem Header="Note speed +" Command="{Binding IncreasePlaybackSpeed}"
+                    IsEnabled="{Binding IsPlayControlEnabled}"
+                    InputGesture="{Binding IncreasePlaybackSpeedKey, Converter={StaticResource KeyGestureConverter}}"/>
           <Separator/>
           <MenuItem Header="Chart Info" Command="{Binding OpenChartInfoWindow}"/>
           <Separator/>
@@ -170,14 +194,29 @@
       </StackPanel>
 
 
-      <Button IsEnabled="{Binding IsPlayControlEnabled}" HotKey="Ctrl+Shift+z" Grid.Row="3" Grid.Column="1" Height="50" Width="50" Margin="5"
-              Command="{Binding Stop}">
+      <Button x:Name="BtnSendViewer" IsEnabled="{Binding IsPlayControlEnabled}" Grid.Row="3" Grid.Column="1" Height="50" Width="50" Margin="5"
+              Command="{Binding Stop}"
+              ToolTip.Tip="{Binding SendViewerKey, StringFormat='Stop viewer ({0})'}">
         <PathIcon Width="13" Data="{StaticResource stop}"/>
       </Button>
-      <Button IsEnabled="{Binding IsPlayControlEnabled}" HotKey="Ctrl+Shift+x" Grid.Row="3" Grid.Column="2" Height="50" Width="50" Margin="5"
-              CommandParameter="{Binding #Editor}" Command="{Binding PlayPause}">
+      <Button x:Name="BtnPlayPause" IsEnabled="{Binding IsPlayControlEnabled}" Grid.Row="3" Grid.Column="2" Height="50" Width="50" Margin="5"
+              CommandParameter="{Binding #Editor}" Command="{Binding PlayPause}"
+              ToolTip.Tip="{Binding PlayPauseKey, StringFormat='Play / pause ({0})'}">
         <PathIcon Data="{StaticResource play_pause}"/>
       </Button>
+
+      <!-- HotKey gestures are applied in code-behind (KeyGesture.Parse); strings come from EditorSetting.json -->
+      <Button x:Name="BtnDecSpeed" IsVisible="False" IsEnabled="{Binding IsPlayControlEnabled}" Grid.Row="3" Grid.Column="3" Command="{Binding DecreasePlaybackSpeed}"/>
+      <Button x:Name="BtnIncSpeed" IsVisible="False" IsEnabled="{Binding IsPlayControlEnabled}" Grid.Row="3" Grid.Column="3" Command="{Binding IncreasePlaybackSpeed}"/>
+
+      <Button x:Name="BtnMirrorLR" IsVisible="False" CommandParameter="{Binding #Editor}" Command="{Binding MirrorHorizontal}" />
+      <Button x:Name="BtnMirrorUD" IsVisible="False" CommandParameter="{Binding #Editor}" Command="{Binding MirrorVertical}" />
+      <Button x:Name="BtnMirror180Hk" IsVisible="False" CommandParameter="{Binding #Editor}" Command="{Binding Mirror180}" />
+      <Button x:Name="BtnMirror45Hk" IsVisible="False" CommandParameter="{Binding #Editor}" Command="{Binding Turn45}" />
+      <Button x:Name="BtnMirrorCcw45Hk" IsVisible="False" CommandParameter="{Binding #Editor}" Command="{Binding TurnNegative45}" />
+
+      <Button x:Name="BtnSaveHk" IsVisible="False" Command="{Binding SaveFile}" />
+      <Button x:Name="BtnPlayStopHk" IsVisible="False" IsEnabled="{Binding IsPlayControlEnabled}" Command="{Binding PlayStop}" CommandParameter="{Binding #Editor}" />
 
       <AvaloniaEdit:TextEditor Grid.Column="3" Grid.Row="1" Grid.RowSpan="3"
                                Document="{Binding FumenDocument}"
@@ -187,27 +226,32 @@
                             >
         <AvaloniaEdit:TextEditor.ContextFlyout>
           <MenuFlyout>
-            <MenuItem Header="Mirror Horizontally" CommandParameter="{Binding #Editor}" Command="{Binding MirrorHorizontal}">
+            <MenuItem Header="Mirror Horizontally" CommandParameter="{Binding #Editor}" Command="{Binding MirrorHorizontal}"
+                      InputGesture="{Binding MirrorLeftRightKey, Converter={StaticResource KeyGestureConverter}}">
               <MenuItem.Icon>
                 <PathIcon Data="{StaticResource mirror_h}"/>
               </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="Mirror Vertically" CommandParameter="{Binding #Editor}" Command="{Binding MirrorVertical}">
+            <MenuItem Header="Mirror Vertically" CommandParameter="{Binding #Editor}" Command="{Binding MirrorVertical}"
+                      InputGesture="{Binding MirrorUpDownKey, Converter={StaticResource KeyGestureConverter}}">
               <MenuItem.Icon>
                 <PathIcon Data="{StaticResource mirror_v}"/>
               </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="Mirror 180°"  CommandParameter="{Binding #Editor}" Command="{Binding Mirror180}">
+            <MenuItem Header="Mirror 180°"  CommandParameter="{Binding #Editor}" Command="{Binding Mirror180}"
+                      InputGesture="{Binding Mirror180Key, Converter={StaticResource KeyGestureConverter}}">
               <MenuItem.Icon>
                 <PathIcon Data="{StaticResource mirror_180}"/>
               </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="Rotate 45°" CommandParameter="{Binding #Editor}" Command="{Binding Turn45}">
+            <MenuItem Header="Rotate 45°" CommandParameter="{Binding #Editor}" Command="{Binding Turn45}"
+                      InputGesture="{Binding Mirror45Key, Converter={StaticResource KeyGestureConverter}}">
               <MenuItem.Icon>
                 <PathIcon Data="{StaticResource rotate_r}"/>
               </MenuItem.Icon>
             </MenuItem>
-            <MenuItem Header="Rotate -45°" CommandParameter="{Binding #Editor}" Command="{Binding TurnNegative45}">
+            <MenuItem Header="Rotate -45°" CommandParameter="{Binding #Editor}" Command="{Binding TurnNegative45}"
+                      InputGesture="{Binding MirrorCcw45Key, Converter={StaticResource KeyGestureConverter}}">
               <MenuItem.Icon>
                 <PathIcon Data="{StaticResource rotate_l}"/>
               </MenuItem.Icon>
@@ -260,14 +304,7 @@
       </Button>
       <Label Grid.Column="0" Grid.Row="1" FontSize="20" HorizontalAlignment="Center">New</Label>
       <Label Grid.Column="1" Grid.Row="1" FontSize="20" HorizontalAlignment="Center">Open</Label>
-      <Button IsVisible="False" HotKey="Ctrl+J" CommandParameter="{Binding #Editor}" Command="{Binding MirrorHorizontal}"/>
-      <Button IsVisible="False" HotKey="Ctrl+K" CommandParameter="{Binding #Editor}" Command="{Binding MirrorVertical}"/>
-      <Button IsVisible="False" HotKey="Ctrl+L" CommandParameter="{Binding #Editor}" Command="{Binding Mirror180}"/>
-      <Button IsVisible="False" HotKey="Ctrl+U" CommandParameter="{Binding #Editor}" Command="{Binding Turn45}"/>
-      <Button IsVisible="False" HotKey="Ctrl+I" CommandParameter="{Binding #Editor}" Command="{Binding TurnNegative45}"/>
-      <Button IsVisible="False" HotKey="Ctrl+S"  Command="{Binding SaveFile}"/>
       <Button IsVisible="False" HotKey="Ctrl+O" Command="{Binding OpenFile}"/>
-      <Button IsVisible="False" IsEnabled="{Binding IsPlayControlEnabled}" HotKey="Ctrl+Shift+C" Command="{Binding PlayStop}" CommandParameter="{Binding #Editor}"/>
     </Grid>
   </Panel>
 </Window>

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -9,6 +10,7 @@ using AvaloniaEdit.Editing;
 using AvaloniaEdit.TextMate;
 using MajdataEdit_Neo.Controls;
 using MajdataEdit_Neo.Models;
+using MajdataEdit_Neo.Utils;
 using MajdataEdit_Neo.ViewModels;
 using System;
 using System.Diagnostics;
@@ -86,6 +88,34 @@ public partial class MainWindow : Window
                 }
             };
         }
+
+        ApplyEditorHotKeysFromViewModel();
+    }
+
+    /// <summary>
+    /// Assigns <see cref="Button.HotKey"/> from JSON strings. XAML cannot bind string to KeyGesture; use <see cref="KeyGesture.Parse(string)"/>.
+    /// </summary>
+    private void ApplyEditorHotKeysFromViewModel()
+    {
+        if (viewModel == null) return;
+
+        TryApplyHotKey(this.FindControl<Button>("BtnSendViewer"), viewModel.SendViewerKey);
+        TryApplyHotKey(this.FindControl<Button>("BtnPlayPause"), viewModel.PlayPauseKey);
+        TryApplyHotKey(this.FindControl<Button>("BtnDecSpeed"), viewModel.DecreasePlaybackSpeedKey);
+        TryApplyHotKey(this.FindControl<Button>("BtnIncSpeed"), viewModel.IncreasePlaybackSpeedKey);
+        TryApplyHotKey(this.FindControl<Button>("BtnMirrorLR"), viewModel.MirrorLeftRightKey);
+        TryApplyHotKey(this.FindControl<Button>("BtnMirrorUD"), viewModel.MirrorUpDownKey);
+        TryApplyHotKey(this.FindControl<Button>("BtnMirror180Hk"), viewModel.Mirror180Key);
+        TryApplyHotKey(this.FindControl<Button>("BtnMirror45Hk"), viewModel.Mirror45Key);
+        TryApplyHotKey(this.FindControl<Button>("BtnMirrorCcw45Hk"), viewModel.MirrorCcw45Key);
+        TryApplyHotKey(this.FindControl<Button>("BtnSaveHk"), viewModel.SaveKey);
+        TryApplyHotKey(this.FindControl<Button>("BtnPlayStopHk"), viewModel.PlayStopKey);
+    }
+
+    private static void TryApplyHotKey(Button? button, string? gestureString)
+    {
+        if (button == null) return;
+        button.HotKey = KeyGestureUtil.TryParse(gestureString);
     }
 
     private void UpdateLoopButtonColors()

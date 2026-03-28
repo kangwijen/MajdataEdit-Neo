@@ -11,9 +11,10 @@ internal class EditorSetting
     public EditorComboIndicator comboStatusType = EditorComboIndicator.None;
     public EditorPlayMethod editorPlayMethod = EditorPlayMethod.DJAuto;
 
-    // Playback speed adjustment keys (not wired in Neo yet, but persisted for compatibility).
-    public string DecreasePlaybackSpeedKey = "Ctrl+o";
-    public string IncreasePlaybackSpeedKey = "Ctrl+p";
+    // Playback speed adjustment keys (applied in MainWindow via KeyGesture.Parse).
+    // Alt+ avoids common Ctrl shortcuts (Open, Print, Redo, etc.).
+    public string DecreasePlaybackSpeedKey = "Alt+O";
+    public string IncreasePlaybackSpeedKey = "Alt+P";
 
     // Per-wave default volumes (Neo still uses MajSetting + Sound Settings, but we persist for compatibility).
     public float Default_Answer_Level = 0.7f;
@@ -30,16 +31,16 @@ internal class EditorSetting
     public float FontSize = 12;
     public string Language = "en-US";
 
-    public string Mirror180Key = "Ctrl+l";
-    public string Mirror45Key = "Ctrl+OemSemicolon";
-    public string MirrorCcw45Key = "Ctrl+OemQuotes";
-    public string MirrorLeftRightKey = "Ctrl+j";
-    public string MirrorUpDownKey = "Ctrl+k";
+    public string Mirror180Key = "Alt+L";
+    public string Mirror45Key = "Alt+OemSemicolon";
+    public string MirrorCcw45Key = "Alt+OemQuotes";
+    public string MirrorLeftRightKey = "Alt+J";
+    public string MirrorUpDownKey = "Alt+K";
 
-    public string PlayPauseKey = "Ctrl+Shift+c";
-    public string PlayStopKey = "Ctrl+Shift+x";
+    public string PlayPauseKey = "Alt+Shift+C";
+    public string PlayStopKey = "Alt+Shift+X";
     public string SaveKey = "Ctrl+s";
-    public string SendViewerKey = "Ctrl+Shift+z";
+    public string SendViewerKey = "Alt+Shift+Z";
 
     public float playSpeed = 7.5f;
     public float touchSpeed = 7.5f;
