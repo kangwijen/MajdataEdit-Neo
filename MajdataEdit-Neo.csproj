@@ -32,6 +32,10 @@
     <Compile Remove="MajdataView-master\**" />
     <EmbeddedResource Remove="MajdataView-master\**" />
     <None Remove="MajdataView-master\**" />
+    <AvaloniaXaml Remove="MajSimai-master\**" />
+    <Compile Remove="MajSimai-master\**" />
+    <EmbeddedResource Remove="MajSimai-master\**" />
+    <None Remove="MajSimai-master\**" />
   </ItemGroup>
 
   <ItemGroup>

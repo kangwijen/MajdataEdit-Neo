@@ -15,6 +15,7 @@
 - [x] **Loop-mode blank viewer**: in loop mode, the viewer can appear blank after a few loops, then return to normal.
 - [x] **Loop marker beat snapping**: the loop marker does not snap to the beat.
 - [x] **Follow Cursor editor focus**: in Follow Cursor mode, you have to click on the text editor for the cursor to appear or update properly.
+- [ ] **Loop mode button state**: after using loop mode, the button's on/off state can sometimes become incorrect or broken.
 
 ## Planned features
 
