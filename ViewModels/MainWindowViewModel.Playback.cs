@@ -106,7 +106,7 @@ public partial class MainWindowViewModel
     }
 
     /// <summary>
-    /// Like normal play, but uses MajdataView record mode: intro (title, artist, jacket, designer) then delayed start.
+    /// MajdataView <c>OpStart</c>: song detail / jacket intro, then delayed chart start (no FFmpeg or MP4; that is only on viewer <c>Record</c>).
     /// </summary>
     public async void RecordMode(TextEditor textEditor)
     {
@@ -167,11 +167,30 @@ public partial class MainWindowViewModel
                 }
 
                 var jsonPath = Path.Combine(_maidataDir, "majdata.json");
-                var introSec = _editorSetting.RecordIntroDelaySeconds ?? 5f;
+
+                // SFX/track_start.wav length plus 1s extra before chart start (viewer + local delay).
+                float introSec = 3f;
+                if (_audioManager != null)
+                {
+                    var d = _audioManager.GetTrackStartSfxDurationSeconds();
+                    if (d > 0 && !double.IsNaN(d) && !double.IsInfinity(d))
+                        introSec = (float)d;
+                    else
+                        introSec = _editorSetting.RecordIntroDelaySeconds ?? 3f;
+                    _audioManager.PlayTrackStartSfx();
+                }
+                else
+                {
+                    introSec = _editorSetting.RecordIntroDelaySeconds ?? 3f;
+                }
+
+                introSec += 2f;
+
                 if (introSec < 0f) introSec = 0f;
                 var startAt = DateTime.Now.AddSeconds(introSec);
 
-                var recordOk = await _viewerConnection.StartRecordingAsync(
+                // OpStart = jacket / song detail only. Record control would start ScreenRecorder + FFmpeg (out.mp4).
+                var introOk = await _viewerConnection.StartOpPlaybackAsync(
                     jsonPath,
                     startAt,
                     (float)TrackTime,
@@ -183,7 +202,7 @@ public partial class MainWindowViewModel
                     _editorSetting.SmoothSlideAnime,
                     GetSelectedPlayMethod());
 
-                if (!recordOk)
+                if (!introOk)
                 {
                     shouldRecoverPlayControl = true;
                     return;
@@ -210,7 +229,7 @@ public partial class MainWindowViewModel
                             return;
                         }
 
-                        // After Record+intro, viewer needed explicit Start (control 0) to kick gameplay.
+                        // After intro, viewer needs explicit Start (control 0) to begin chart playback.
                         var kickOk = await _viewerConnection.StartPlaybackAsync(
                             jsonPath,
                             DateTime.Now,

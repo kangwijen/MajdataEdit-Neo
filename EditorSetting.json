@@ -2,7 +2,7 @@
   "AutoCheckUpdate": true,
   "backgroundCover": 0.6,
   "ChartRefreshDelay": 1000,
-  "RecordIntroDelaySeconds": 5,
+  "RecordIntroDelaySeconds": 3,
   "comboStatusType": 1,
   "editorPlayMethod": 1,
   "DecreasePlaybackSpeedKey": "Alt+O",

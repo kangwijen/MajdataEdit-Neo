@@ -9,7 +9,7 @@ internal class EditorSetting
     public float backgroundCover = 0.6f;
     public int ChartRefreshDelay = 1000;
 
-    /// <summary>Seconds to add to viewer <c>startAt</c> for record mode (legacy MajdataEdit used 5s). Null if omitted from JSON.</summary>
+    /// <summary>Fallback seconds for record-mode intro delay when <c>track_start.wav</c> duration cannot be read. Null uses 3s in app.</summary>
     public float? RecordIntroDelaySeconds = null;
     public EditorComboIndicator comboStatusType = EditorComboIndicator.None;
     public EditorPlayMethod editorPlayMethod = EditorPlayMethod.DJAuto;

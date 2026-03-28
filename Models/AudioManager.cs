@@ -524,6 +524,23 @@ class AudioManager : IDisposable
         }
     }
 
+    /// <summary>Duration of loaded <c>track_start.wav</c> in seconds, or 0 if not loaded.</summary>
+    public double GetTrackStartSfxDurationSeconds()
+    {
+        if (trackStartStream == 0) return 0;
+        var len = Bass.ChannelGetLength(trackStartStream);
+        if (len <= 0) return 0;
+        return Bass.ChannelBytes2Seconds(trackStartStream, len);
+    }
+
+    /// <summary>Plays <c>SFX/track_start.wav</c> from the start (record-mode intro).</summary>
+    public void PlayTrackStartSfx()
+    {
+        if (trackStartStream == 0) return;
+        Bass.ChannelSetPosition(trackStartStream, 0);
+        Bass.ChannelPlay(trackStartStream, true);
+    }
+
     private void StopAllSfx()
     {
         var streams = new[] {
