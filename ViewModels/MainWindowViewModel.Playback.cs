@@ -21,8 +21,33 @@ public partial class MainWindowViewModel
     private bool _loopStartSet;
     private bool _hasLoopRegion;
 
+    /// <summary>Previous display <see cref="TrackTime"/> sample for loop end crossing detection.</summary>
+    double _loopPrevDisplayTime = double.NegativeInfinity;
+
     /// <summary>Cancels delayed <see cref="OnPlayStarted"/> after record mode HTTP success (viewer intro window).</summary>
     CancellationTokenSource? _recordIntroCts;
+
+    partial void OnIsFollowCursorChanged(bool value)
+    {
+        if (value && IsPlaying)
+            FocusTextEditorForFollowCursor();
+    }
+
+    /// <summary>
+    /// Focuses the simai editor when follow-cursor is enabled, scheduled on the UI thread.
+    /// Not called on every playback poll so toolbar and waveform stay clickable.
+    /// </summary>
+    void FocusTextEditorForFollowCursor()
+    {
+        if (_textEditor is null || !IsFollowCursor)
+            return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_textEditor is null || !IsFollowCursor)
+                return;
+            _textEditor.TextArea.Focus();
+        }, DispatcherPriority.Input);
+    }
 
     public async void PlayPause(TextEditor textEditor)
     {
@@ -374,61 +399,83 @@ public partial class MainWindowViewModel
             _audioManager.StartSfxLoop();
         }
 
+        FocusTextEditorForFollowCursor();
+
         await Task.Run(async () =>
         {
             var watch = new Stopwatch();
             watch.Start();
             var timeA = watch.Elapsed;
             IsAnimated = false;
+            _loopPrevDisplayTime = double.NegativeInfinity;
             while (IsPlaying && _viewerConnection.IsViewerRunning)
             {
-                TrackTime = watch.ElapsedMilliseconds / 1000d + playStartTime;
-
-                if (_loopController.ShouldLoopWithOffset(TrackTime, Offset))
+                var pollTime = watch.ElapsedMilliseconds / 1000d + playStartTime;
+                try
                 {
-                    var loopStart = (_loopController.CurrentRegion?.StartTime ?? 0) + Offset;
+                    TrackTime = pollTime;
 
-                    await OnLoopTriggeredAsync();
+                    if (_loopController.ShouldLoopWithOffset(_loopPrevDisplayTime, pollTime, Offset))
+                    {
+                        var loopStart = (_loopController.CurrentRegion?.StartTime ?? 0) + Offset;
 
-                    playStartTime = loopStart;
-                    watch.Restart();
+                        await OnLoopTriggeredAsync();
 
-                    var timeB_loop = watch.Elapsed;
-                    var waitTime_loop = Math.Max(16 - (int)(timeB_loop - timeA).TotalMilliseconds, 0);
-                    await Task.Delay(waitTime_loop);
-                    continue;
+                        playStartTime = loopStart;
+                        watch.Restart();
+                        pollTime = watch.ElapsedMilliseconds / 1000d + playStartTime;
+                        TrackTime = pollTime;
+
+                        var timeB_loop = watch.Elapsed;
+                        var waitTime_loop = Math.Max(16 - (int)(timeB_loop - timeA).TotalMilliseconds, 0);
+                        await Task.Delay(waitTime_loop);
+                        continue;
+                    }
+
+                    if (SongTrackInfo != null && pollTime >= SongTrackInfo.Length)
+                    {
+                        await Dispatcher.UIThread.InvokeAsync(() => { OnPlayStopped(); });
+                        break;
+                    }
+
+                    if (IsFollowCursor && CurrentSimaiChart != null && _textEditor != null)
+                    {
+                        var commaTimings = CurrentSimaiChart.CommaTimings;
+                        if (commaTimings is null || commaTimings.Length == 0)
+                            continue;
+
+                        var notePlusOffset = commaTimings
+                            .Select(o => new { Note = o, TimingPlusOffset = o.Timing + Offset })
+                            .ToArray();
+
+                        var nearestNote = notePlusOffset
+                            .Where(x => x.TimingPlusOffset <= pollTime)
+                            .OrderByDescending(x => x.TimingPlusOffset)
+                            .Select(x => x.Note)
+                            .FirstOrDefault();
+
+                        if (nearestNote is null)
+                            nearestNote = notePlusOffset.OrderBy(x => x.TimingPlusOffset).Select(x => x.Note).FirstOrDefault();
+                        if (nearestNote is null)
+                            continue;
+
+                        var point = new Point(nearestNote.RawTextPositionX, nearestNote.RawTextPositionY);
+
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            SeekToDocPos(point, _textEditor!, focusEditor: false);
+                        });
+                    }
+
+                    var timeB = watch.Elapsed;
+                    var waitTime = Math.Max(16 - (int)(timeB - timeA).TotalMilliseconds, 0);
+                    await Task.Delay(waitTime);
                 }
-
-                if (SongTrackInfo != null && TrackTime >= SongTrackInfo.Length)
+                finally
                 {
-                    await Dispatcher.UIThread.InvokeAsync(() => { OnPlayStopped(); });
-                    break;
+                    // Use pollTime from this thread; TrackTime property can lag behind on the worker vs UI sync.
+                    _loopPrevDisplayTime = pollTime;
                 }
-
-                if (IsFollowCursor && CurrentSimaiChart != null && _textEditor != null)
-                {
-                    var notePlusOffset = CurrentSimaiChart.CommaTimings
-                        .Select(o => new { Note = o, TimingPlusOffset = o.Timing + Offset })
-                        .ToArray();
-
-                    var nearestNote = notePlusOffset
-                        .Where(x => x.TimingPlusOffset <= TrackTime)
-                        .OrderByDescending(x => x.TimingPlusOffset)
-                        .Select(x => x.Note)
-                        .FirstOrDefault();
-
-                    if (nearestNote is null)
-                        nearestNote = notePlusOffset.OrderBy(x => x.TimingPlusOffset).Select(x => x.Note).FirstOrDefault();
-                    if (nearestNote is null) continue;
-
-                    var point = new Point(nearestNote.RawTextPositionX, nearestNote.RawTextPositionY);
-
-                    await Dispatcher.UIThread.InvokeAsync(() => { SeekToDocPos(point, _textEditor!); });
-                }
-
-                var timeB = watch.Elapsed;
-                var waitTime = Math.Max(16 - (int)(timeB - timeA).TotalMilliseconds, 0);
-                await Task.Delay(waitTime);
             }
 
             IsAnimated = true;
@@ -500,12 +547,13 @@ public partial class MainWindowViewModel
     private async Task OnLoopTriggeredAsync()
     {
         if (_isProcessingLoop) return;
-        if (_loopController.CurrentRegion is null) return;
+        var region = _loopController.CurrentRegion;
+        if (region is null) return;
 
         _isProcessingLoop = true;
         try
         {
-            var loopStart = _loopController.CurrentRegion.StartTime + Offset;
+            var loopStart = region.StartTime + Offset;
 
             if (_audioManager != null)
             {
@@ -519,7 +567,7 @@ public partial class MainWindowViewModel
                 ChartSerializer.SaveMajdataJson(majson, _maidataDir);
                 var jsonPath = Path.Combine(_maidataDir, "majdata.json");
 
-                _ = _viewerConnection.StopPlaybackAsync();
+                await _viewerConnection.StopPlaybackAsync();
 
                 playStartTime = loopStart;
                 TrackTime = loopStart;
@@ -570,7 +618,8 @@ public partial class MainWindowViewModel
         return _viewerConnection.IsViewerRunning;
     }
 
-    public void SeekToDocPos(Point position, TextEditor editor)
+    /// <param name="focusEditor">When false (e.g. follow-cursor during playback), only scrolls and moves the caret without focusing the editor so other controls stay clickable.</param>
+    public void SeekToDocPos(Point position, TextEditor editor, bool focusEditor = true)
     {
         if (!Dispatcher.UIThread.CheckAccess())
         {
@@ -583,7 +632,8 @@ public partial class MainWindowViewModel
             var offset = editor.Document.GetOffset((int)position.Y + 1, (int)position.X);
             editor.Select(offset, 0);
             editor.ScrollTo((int)position.Y + 1, (int)position.X);
-            editor.Focus();
+            if (focusEditor)
+                editor.TextArea.Focus();
         }
         finally
         {
@@ -622,16 +672,10 @@ public partial class MainWindowViewModel
             (chartStartTime, chartEndTime) = (chartEndTime, chartStartTime);
 
         var success = LoopViewModel?.TrySetRegion(chartStartTime, chartEndTime, CurrentSimaiChart) ?? false;
-        Console.WriteLine($"[LOOP] TrySetRegion: start={chartStartTime:F3}, end={chartEndTime:F3}, success={success}, Offset={Offset:F3}");
         if (success)
         {
             _hasLoopRegion = true;
             OnPropertyChanged(nameof(HasLoopRegion));
-            Console.WriteLine($"[LOOP] Region set successfully! IsEnabled={_loopController.IsEnabled}");
-        }
-        else
-        {
-            Console.WriteLine($"[LOOP] Region set FAILED!");
         }
 
         _pendingLoopStart = null;

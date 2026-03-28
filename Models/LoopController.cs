@@ -62,12 +62,9 @@ public interface ILoopController
     bool ShouldLoop(double currentTime);
 
     /// <summary>
-    /// Checks whether a loop should be triggered at the current time with offset adjustment.
+    /// True when display time crosses the loop end: previous < end > current (avoids re-firing every frame past the end).
     /// </summary>
-    /// <param name="currentTime">The current display playback time in seconds (with offset).</param>
-    /// <param name="offset">The audio offset in seconds.</param>
-    /// <returns>True if a loop should be triggered; false otherwise.</returns>
-    bool ShouldLoopWithOffset(double currentTime, double offset);
+    bool ShouldLoopWithOffset(double previousDisplayTime, double currentDisplayTime, double offset);
 
     /// <summary>
     /// Snaps a time value to the nearest beat.
@@ -169,15 +166,11 @@ public class LoopController : ILoopController
     {
         _chart = chart;
 
-Console.WriteLine($"TrySetRegion: startTime={startTime:F3}, endTime={endTime:F3}");
-
         if (!ValidateRegion(startTime, endTime, chart))
             return false;
 
         var snappedStart = SnapToBeat(startTime, chart);
         var snappedEnd = SnapToBeat(endTime, chart);
-
-Console.WriteLine($"After snapping: snappedStart={snappedStart:F3}, snappedEnd={snappedEnd:F3}");
 
         // Re-validate after snapping (times might have crossed)
         if (!ValidateRegion(snappedStart, snappedEnd, chart))
@@ -185,8 +178,6 @@ Console.WriteLine($"After snapping: snappedStart={snappedStart:F3}, snappedEnd={
 
         _currentRegion = new LoopRegion(snappedStart, snappedEnd);
         RegionChanged?.Invoke(this, _currentRegion);
-
-Console.WriteLine($"Loop region set: Start={_currentRegion.StartTime:F3}, End={_currentRegion.EndTime:F3}");
         return true;
     }
 
@@ -220,34 +211,19 @@ Console.WriteLine($"Loop region set: Start={_currentRegion.StartTime:F3}, End={_
     }
 
     /// <summary>
-    /// Checks whether a loop should be triggered at the current display time with offset adjustment.
+    /// Fires once per crossing of the loop end (not while time stays past the end).
     /// </summary>
-    public bool ShouldLoopWithOffset(double currentTime, double offset)
+    public bool ShouldLoopWithOffset(double previousDisplayTime, double currentDisplayTime, double offset)
     {
         if (!IsEnabled)
             return false;
 
         if (_currentRegion is null)
-        {
-            Console.WriteLine("[LOOP] ShouldLoopWithOffset: No region set!");
             return false;
-        }
 
-        // Convert chart time to display time for comparison
         var displayEndTime = _currentRegion.EndTime + offset;
-        var displayStartTime = _currentRegion.StartTime + offset;
 
-        // Debug output
-        Console.WriteLine($"[LOOP] Check: time={currentTime:F3}, start={displayStartTime:F3}, end={displayEndTime:F3}, offset={offset:F3}, trigger={currentTime >= displayEndTime}");
-
-        if (currentTime >= displayEndTime)
-        {
-            Console.WriteLine($"[LOOP] *** TRIGGERED! *** Jumping from {currentTime:F3} to {displayStartTime:F3}");
-            LoopTriggered?.Invoke(this, EventArgs.Empty);
-            return true;
-        }
-
-        return false;
+        return previousDisplayTime < displayEndTime && currentDisplayTime >= displayEndTime;
     }
 
     /// <summary>
@@ -277,12 +253,8 @@ Console.WriteLine($"Loop region set: Start={_currentRegion.StartTime:F3}, End={_
 
         // Only snap if within threshold
         if (Math.Abs(nearestBeat - time) < snapThreshold)
-        {
-    Console.WriteLine($"Snap: {time:F3} -> {nearestBeat:F3} (distance: {Math.Abs(nearestBeat - time):F3}, threshold: {snapThreshold:F3})");
             return nearestBeat;
-        }
 
-Console.WriteLine($"No snap: {time:F3} (nearest beat: {nearestBeat:F3}, distance: {Math.Abs(nearestBeat - time):F3}, threshold: {snapThreshold:F3})");
         return time;
     }
 
@@ -332,6 +304,15 @@ Console.WriteLine($"No snap: {time:F3} (nearest beat: {nearestBeat:F3}, distance
                 lastBpm = timing.Bpm;
             }
         }
+
+        if (bpmChangeTimes.Count == 0)
+            return beatTimes;
+
+        // SimaiVisualizerControl appends track end so the last BPM section generates beats (see SimaiVisualizerControl.cs).
+        // Without this, a single BPM segment yields an empty list and loop markers never snap.
+        var lastTimingTime = chart.CommaTimings[^1].Timing;
+        var sectionEnd = Math.Max(lastTimingTime, bpmChangeTimes[^1]) + 300.0;
+        bpmChangeTimes.Add(sectionEnd);
 
         const int signature = 4; // Time signature
         var currentBeat = 1;

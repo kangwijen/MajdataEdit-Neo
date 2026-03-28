@@ -361,7 +361,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         // Initialize Loop system
         LoopViewModel = new LoopViewModel(_loopController);
-        _loopController.LoopTriggered += async (s, e) => await OnLoopTriggeredAsync();
+        // Loop is driven only from the playback poll (ShouldLoopWithOffset crossing); do not subscribe to LoopTriggered here (would duplicate OnLoopTriggeredAsync with the poll).
 
         // Subscribe to loop region changes to update HasLoopRegion
         LoopViewModel.PropertyChanged += (s, e) =>
