@@ -111,9 +111,12 @@
           <Separator/>
           <MenuItem Header="Find and Replace" PointerPressed="FindReplace_PointerPressed"/>
         </MenuItem>
+        <MenuItem Header="_Settings">
+          <MenuItem Header="Audio" Command="{Binding OpenSoundSettingWindow}"/>
+          <MenuItem Header="Player" Command="{Binding OpenPlayerSettingsWindow}"/>
+        </MenuItem>
         <MenuItem Header="_Tools">
           <MenuItem Header="BPM Tap" Command="{Binding OpenBpmTapWindow}"/>
-          <MenuItem Header="Sound Settings" Command="{Binding OpenSoundSettingWindow}"/>
           <MenuItem Header="Compress bg.mp4"/>
         </MenuItem>
         <MenuItem Header="_About">
@@ -146,24 +149,6 @@
         <TextBox  Name="Designer" Text="{Binding Designer}"/>
         <Label  VerticalAlignment="Center">Offset</Label>
         <NumericUpDown  Name="First" Value="{Binding Offset}" Increment="0.01"/>
-        <Label  VerticalAlignment="Center">Note Speed</Label>
-        <NumericUpDown  Name="NoteSpeed" Value="{Binding NoteSpeed}" Minimum="1" Maximum="10" Increment="0.25"/>
-        <Label  VerticalAlignment="Center">Touch Speed</Label>
-        <NumericUpDown  Name="TouchSpeed" Value="{Binding TouchSpeed}" Minimum="1" Maximum="10" Increment="0.25"/>
-        <Label  VerticalAlignment="Center">Center Display</Label>
-        <ComboBox Name="CenterDisplay"
-                  Width="120" VerticalAlignment="Center"
-                  SelectedIndex="{Binding CenterDisplayMode}">
-          <ComboBoxItem Content="Off" />
-          <ComboBoxItem Content="Combo" />
-        </ComboBox>
-        <Label  VerticalAlignment="Center">Play Mode</Label>
-        <ComboBox Name="PlayMode"
-                  Width="120" VerticalAlignment="Center"
-                  SelectedIndex="{Binding PlayModeIndex}">
-          <ComboBoxItem Content="Default" />
-          <ComboBoxItem Content="DJAuto" />
-        </ComboBox>
         <CheckBox Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Margin="0 10 0 0"
                   IsChecked="{Binding IsFollowCursor}">Follow Cursor</CheckBox>
         <CheckBox Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="2" Margin="0 5 0 0"

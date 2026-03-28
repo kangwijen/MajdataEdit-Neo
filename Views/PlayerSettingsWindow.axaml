@@ -1,0 +1,63 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MajdataEdit_Neo.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="380" d:DesignHeight="360"
+        x:Class="MajdataEdit_Neo.Views.PlayerSettingsWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Player Settings"
+        Width="400"
+        SizeToContent="Height"
+        MinWidth="360"
+        MinHeight="320"
+        WindowStartupLocation="CenterOwner">
+
+  <Design.DataContext>
+    <vm:MainWindowViewModel/>
+  </Design.DataContext>
+
+  <Grid Margin="24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <TextBlock Grid.Row="0" Text="Player Settings" FontSize="20" FontWeight="Bold" Margin="0,0,0,20"/>
+
+    <StackPanel Grid.Row="1" Spacing="18">
+      <StackPanel Spacing="6">
+        <Label Target="PlayerNoteSpeed">Note Speed</Label>
+        <NumericUpDown Name="PlayerNoteSpeed" Value="{Binding NoteSpeed}" Minimum="1" Maximum="10" Increment="0.25"
+                         HorizontalAlignment="Stretch"/>
+      </StackPanel>
+      <StackPanel Spacing="6">
+        <Label Target="PlayerTouchSpeed">Touch Speed</Label>
+        <NumericUpDown Name="PlayerTouchSpeed" Value="{Binding TouchSpeed}" Minimum="1" Maximum="10" Increment="0.25"
+                         HorizontalAlignment="Stretch"/>
+      </StackPanel>
+      <StackPanel Spacing="6">
+        <Label Target="PlayerCenterDisplay">Center Display</Label>
+        <ComboBox Name="PlayerCenterDisplay" HorizontalAlignment="Stretch"
+                  SelectedIndex="{Binding CenterDisplayMode}">
+          <ComboBoxItem Content="Off" />
+          <ComboBoxItem Content="Combo" />
+        </ComboBox>
+      </StackPanel>
+      <StackPanel Spacing="6" Margin="0,0,0,4">
+        <Label Target="PlayerPlayMode">Play Mode</Label>
+        <ComboBox Name="PlayerPlayMode" HorizontalAlignment="Stretch"
+                  SelectedIndex="{Binding PlayModeIndex}">
+          <ComboBoxItem Content="Default" />
+          <ComboBoxItem Content="DJAuto" />
+        </ComboBox>
+      </StackPanel>
+    </StackPanel>
+
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,28,0,0">
+      <Button Content="Reset to Defaults" MinWidth="140" Click="ResetToDefaultsButton_Click"/>
+      <Button Content="Close" MinWidth="80" Click="CloseButton_Click"/>
+    </StackPanel>
+  </Grid>
+</Window>

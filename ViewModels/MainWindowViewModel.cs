@@ -1152,6 +1152,16 @@ public partial class MainWindowViewModel : ViewModelBase
         window.DataContext = this;
         await window.ShowDialog(mainWindow.MainWindow);
     }
+
+    public async void OpenPlayerSettingsWindow()
+    {
+        var mainWindow = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        if (mainWindow?.MainWindow is null) return;
+
+        var window = new PlayerSettingsWindow();
+        window.DataContext = this;
+        await window.ShowDialog(mainWindow.MainWindow);
+    }
     public async void OpenChartInfoWindow()
     {
         if (CurrentSimaiFile is null) return;
