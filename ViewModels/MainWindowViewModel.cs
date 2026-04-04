@@ -274,6 +274,9 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private float touchSpeed = 7.5f;
 
+    [ObservableProperty]
+    private float editorFontSize = 12f;
+
     bool _isBackToStartOnPlayStop = false;
     bool _isUpdatingAutoSaveContext = false;
     
@@ -619,6 +622,16 @@ public partial class MainWindowViewModel : ViewModelBase
         if (mainWindow?.MainWindow is null) return;
 
         var window = new PlayerSettingsWindow();
+        window.DataContext = this;
+        await window.ShowDialog(mainWindow.MainWindow);
+    }
+
+    public async void OpenEditorSettingsWindow()
+    {
+        var mainWindow = Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        if (mainWindow?.MainWindow is null) return;
+
+        var window = new EditorSettingsWindow();
         window.DataContext = this;
         await window.ShowDialog(mainWindow.MainWindow);
     }

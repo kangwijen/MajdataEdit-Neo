@@ -20,7 +20,7 @@
 
 ## Planned features
 
-- [ ] **Time signature support for the yellow guide lines**: allow non-4/4 by supporting configurable "yellow line" markers, possibly via a comment-based time signature syntax.
+- [x] **Time signature support for the yellow guide lines**: allow non-4/4 by supporting configurable "yellow line" markers, possibly via a comment-based time signature syntax.
 - [x] **Editor auto-wrap or auto-formatting**: split very long code lines into new lines when the window is small.
 - [x] **Start delay option**: optional delay (for example 10 seconds) after pressing play to make recording easier.
 - [x] **Discord RPC**: display playback state via Discord Rich Presence.
@@ -29,7 +29,7 @@
 - [x] **Note speed change**: allow changing note speed via UI/setting.
 - [x] **Editor settings**: add persistent editor settings using JSON file.
 - [x] **Keybindings shortcut customization**: configurable shortcuts in `EditorSetting.json`, the **Edit** and **File** menus show each shortcut on the right via `InputGesture`, and the play/stop toolbar buttons still have tooltips.
-- [ ] **Adjustable font size**: adjustable font size via settings.
+- [x] **Adjustable font size**: adjustable font size via settings.
 
 ## Acknowledgements
 

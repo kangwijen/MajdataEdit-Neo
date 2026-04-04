@@ -8,6 +8,9 @@ namespace MajdataEdit_Neo.ViewModels;
 
 public partial class MainWindowViewModel
 {
+    private const float MinEditorFontSize = 6f;
+    private const float MaxEditorFontSize = 72f;
+
     private readonly string _editorSettingFilename = "EditorSetting.json";
     private EditorSetting _editorSetting = new();
     private bool _isLoadingEditorSetting;
@@ -37,6 +40,7 @@ public partial class MainWindowViewModel
     private void ReadEditorSetting()
     {
         _isLoadingEditorSetting = true;
+        var fontSizeClampedOnLoad = false;
         try
         {
             var path = GetEditorSettingPath();
@@ -57,6 +61,16 @@ public partial class MainWindowViewModel
             NoteSpeed = _editorSetting.playSpeed;
             TouchSpeed = _editorSetting.touchSpeed;
 
+            var fontSize = _editorSetting.FontSize;
+            if (fontSize < MinEditorFontSize || fontSize > MaxEditorFontSize)
+            {
+                fontSize = Math.Clamp(fontSize, MinEditorFontSize, MaxEditorFontSize);
+                _editorSetting.FontSize = fontSize;
+                fontSizeClampedOnLoad = true;
+            }
+
+            EditorFontSize = fontSize;
+
             AudioLevelsSnapshot.From(_editorSetting).CopyToViewModel(this);
         }
         catch (Exception ex)
@@ -67,6 +81,9 @@ public partial class MainWindowViewModel
         {
             _isLoadingEditorSetting = false;
         }
+
+        if (fontSizeClampedOnLoad)
+            SaveEditorSetting();
     }
 
     private void SaveEditorSetting()
@@ -122,6 +139,20 @@ public partial class MainWindowViewModel
     {
         if (_isLoadingEditorSetting) return;
         _editorSetting.touchSpeed = value;
+        SaveEditorSetting();
+    }
+
+    partial void OnEditorFontSizeChanged(float value)
+    {
+        if (_isLoadingEditorSetting) return;
+        var clamped = Math.Clamp(value, MinEditorFontSize, MaxEditorFontSize);
+        if (Math.Abs(clamped - value) > 0.0001f)
+        {
+            EditorFontSize = clamped;
+            return;
+        }
+
+        _editorSetting.FontSize = value;
         SaveEditorSetting();
     }
 
