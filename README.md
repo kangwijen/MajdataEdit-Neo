@@ -16,6 +16,7 @@
 - [x] **Loop marker beat snapping**: the loop marker does not snap to the beat.
 - [x] **Follow Cursor editor focus**: in Follow Cursor mode, you have to click on the text editor for the cursor to appear or update properly.
 - [ ] **Loop mode button state**: after using loop mode, the button's on/off state can sometimes become incorrect or broken.
+- [ ] **Loop mode crash on uncommon time signature**: using loop mode when the chart is in a non-common time signature (not 4/4) can sometimes crash the app.
 
 ## Planned features
 

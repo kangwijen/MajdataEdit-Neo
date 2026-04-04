@@ -7,6 +7,10 @@
       "match": "&\\w*="
     },
     {
+      "name": "constant.numeric.time-signature.simai",
+      "match": "<[0-9]+\\s*/\\s*[0-9]+>"
+    },
+    {
       "name": "string.quoted.double.bpm.simai",
       "begin": "\\(",
       "end": "\\)"

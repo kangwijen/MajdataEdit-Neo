@@ -52,7 +52,8 @@ public interface ILoopController
     /// Sets the current chart for beat snapping operations.
     /// </summary>
     /// <param name="chart">The chart to use for timing information.</param>
-    void SetChart(SimaiChart? chart);
+    /// <param name="fumenText">Raw chart text for <c>&lt;n/d&gt;</c> time signature markers.</param>
+    void SetChart(SimaiChart? chart, string? fumenText = null);
 
     /// <summary>
     /// Checks whether a loop should be triggered at the current time.
@@ -103,6 +104,7 @@ public class LoopController : ILoopController
     private LoopRegion? _currentRegion;
     private bool _isEnabled;
     private SimaiChart? _chart;
+    private string? _fumenText;
 
     /// <summary>
     /// Gets or sets whether looping is enabled.
@@ -150,9 +152,11 @@ public class LoopController : ILoopController
     /// Sets the current chart for beat snapping operations.
     /// </summary>
     /// <param name="chart">The chart to use for timing information.</param>
-    public void SetChart(SimaiChart? chart)
+    /// <param name="fumenText">Raw chart text for <c>&lt;n/d&gt;</c> time signature markers.</param>
+    public void SetChart(SimaiChart? chart, string? fumenText = null)
     {
         _chart = chart;
+        _fumenText = fumenText;
         if (_currentRegion is not null && chart is null)
         {
             ClearRegion();
@@ -284,61 +288,13 @@ public class LoopController : ILoopController
     }
 
     /// <summary>
-    /// Generates all beat times for a chart, matching the visualizer's beat line positions.
-    /// This matches the beat generation in SimaiVisualizerControl.cs lines 272-335.
+    /// Generates all beat times for a chart, matching the waveform guide (see <see cref="TimeSignatureHelper"/>).
     /// </summary>
     private System.Collections.Generic.List<double> GenerateBeatTimes(SimaiChart chart)
     {
-        var beatTimes = new System.Collections.Generic.List<double>();
-        var lastBpm = -1f;
-        var bpmChangeTimes = new System.Collections.Generic.List<double>();
-        var bpmChangeValues = new System.Collections.Generic.List<float>();
-
-        // Collect BPM change points (same as visualizer line 282)
-        foreach (var timing in chart.CommaTimings)
-        {
-            if (timing.Bpm != lastBpm)
-            {
-                bpmChangeTimes.Add(timing.Timing);
-                bpmChangeValues.Add(timing.Bpm);
-                lastBpm = timing.Bpm;
-            }
-        }
-
-        if (bpmChangeTimes.Count == 0)
-            return beatTimes;
-
-        // SimaiVisualizerControl appends track end so the last BPM section generates beats (see SimaiVisualizerControl.cs).
-        // Without this, a single BPM segment yields an empty list and loop markers never snap.
         var lastTimingTime = chart.CommaTimings[^1].Timing;
-        var sectionEnd = Math.Max(lastTimingTime, bpmChangeTimes[^1]) + 300.0;
-        bpmChangeTimes.Add(sectionEnd);
-
-        const int signature = 4; // Time signature
-        var currentBeat = 1;
-        double time;
-
-        // Visualizer starts from first BPM change time (line 289)
-        time = bpmChangeTimes.FirstOrDefault();
-
-        // Generate beat times for each BPM section (matches visualizer lines 298-321)
-        for (var i = 1; i < bpmChangeTimes.Count; i++)
-        {
-            double timePerBeat = 60.0 / bpmChangeValues[i - 1];
-
-            while (time < bpmChangeTimes[i] - 0.05)
-            {
-                beatTimes.Add(time);
-                currentBeat++;
-                if (currentBeat > signature) currentBeat = 1;
-                time += timePerBeat;
-            }
-
-            time = bpmChangeTimes[i];
-            currentBeat = 1;
-        }
-
-        return beatTimes;
+        var sectionEnd = lastTimingTime + 300.0;
+        return TimeSignatureHelper.GenerateAllBeatsChartTime(chart, _fumenText, sectionEnd);
     }
 
     /// <summary>

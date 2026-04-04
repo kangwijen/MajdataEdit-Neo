@@ -211,6 +211,9 @@ public partial class MainWindowViewModel
             if (setting == null) return;
 
             SelectedDifficulty = setting.lastEditDiff;
+            if (CurrentSimaiFile?.RawCharts is { Length: > 0 } rc &&
+                (SelectedDifficulty < 0 || SelectedDifficulty >= rc.Length))
+                SelectedDifficulty = 0;
             TrackTime = setting.lastEditTime;
 
             // Do not apply majSetting.json volume fields to the audio engine: they desynced global

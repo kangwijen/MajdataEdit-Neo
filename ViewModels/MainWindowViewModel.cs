@@ -46,6 +46,7 @@ public partial class MainWindowViewModel : ViewModelBase
             CurrentSimaiFile.Offset = value;
             SetProperty(ref _offset, value);
             OnPropertyChanged(nameof(CurrentSimaiFile));
+            OnPropertyChanged(nameof(DisplayTimeSignature));
             // Update loop view model with new offset for display
             LoopViewModel.SetOffset(value);
             // Regenerate majson.json when offset changes
@@ -59,6 +60,17 @@ public partial class MainWindowViewModel : ViewModelBase
             var minute = (int)TrackTime / 60;
             double second = (int)(TrackTime - 60 * minute);
             return string.Format("{0}:{1:00}", minute, second);
+        }
+    }
+
+    /// <summary>Active meter at the playhead (same logic as the waveform grid). Shown below <see cref="DisplayTime"/>.</summary>
+    /// <remarks>Three lines: numerator, box-drawing bar (U+2500), denominator, for a compact score-style readout.</remarks>
+    public string DisplayTimeSignature
+    {
+        get
+        {
+            var (n, d) = TimeSignatureHelper.GetSignatureAtChartTime(CurrentSimaiChart, CurrentFumen, TrackTime - Offset);
+            return $"{n}\n\u2500\n{d}";
         }
     }
     public bool IsLoaded
@@ -130,9 +142,12 @@ public partial class MainWindowViewModel : ViewModelBase
         get
         {
             if (CurrentSimaiFile is null) return new TextDocument();
-            var text = CurrentSimaiFile.RawCharts[SelectedDifficulty];
+            var rc = CurrentSimaiFile.RawCharts;
+            if (rc is null || rc.Length == 0) return new TextDocument();
+            var di = SafeDifficultyIndex(rc.Length);
+            var text = rc[di];
             if (text is null) return new TextDocument();
-            ref var fumenContent = ref CurrentSimaiFile.RawCharts[SelectedDifficulty];
+            ref var fumenContent = ref rc[di];
             OriginFumen = fumenContent;
             return new TextDocument(fumenContent);
         }
@@ -144,8 +159,11 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             if (CurrentSimaiFile is null)
                 return string.Empty;
-
-            return CurrentSimaiFile.RawCharts[SelectedDifficulty];
+            var rc = CurrentSimaiFile.RawCharts;
+            if (rc is null || rc.Length == 0)
+                return string.Empty;
+            var di = SafeDifficultyIndex(rc.Length);
+            return rc[di] ?? string.Empty;
         }
     }
     public string OriginFumen { get; set; } = string.Empty;
@@ -153,13 +171,19 @@ public partial class MainWindowViewModel : ViewModelBase
     public async Task SetFumenContent(string content)
     {
         if (CurrentSimaiFile is null) return;
-        var text = CurrentSimaiFile.RawCharts[SelectedDifficulty];
-        if (text is null) CurrentSimaiFile.RawCharts[SelectedDifficulty] = "";
-        CurrentSimaiFile.RawCharts[SelectedDifficulty] = content;
+        var rc = CurrentSimaiFile.RawCharts;
+        if (rc is null || rc.Length == 0) return;
+        var di = SafeDifficultyIndex(rc.Length);
+        var text = rc[di];
+        if (text is null) rc[di] = "";
+        rc[di] = content;
         OnPropertyChanged(nameof(CurrentSimaiFile));
+        OnPropertyChanged(nameof(CurrentFumen));
+        OnPropertyChanged(nameof(DisplayTimeSignature));
         try
         {
             CurrentSimaiChart = await _simaiParser.ParseChartAsync(string.Empty, string.Empty, content);
+            LoopViewModel.UpdateChart(CurrentSimaiChart, CurrentFumen);
             //IsSaved = true;
         }
         catch (Exception)
@@ -172,17 +196,22 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FumenDocument))]
+    [NotifyPropertyChangedFor(nameof(CurrentFumen))]
+    [NotifyPropertyChangedFor(nameof(DisplayTimeSignature))]
     [NotifyPropertyChangedFor(nameof(Level))]
     [NotifyPropertyChangedFor(nameof(Designer))]
     int selectedDifficulty = 0;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FumenDocument))]
+    [NotifyPropertyChangedFor(nameof(CurrentFumen))]
+    [NotifyPropertyChangedFor(nameof(DisplayTimeSignature))]
     [NotifyPropertyChangedFor(nameof(Level))]
     [NotifyPropertyChangedFor(nameof(Designer))]
     [NotifyPropertyChangedFor(nameof(Offset))]
     [NotifyPropertyChangedFor(nameof(IsLoaded))]
     SimaiFile? currentSimaiFile = null;
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayTimeSignature))]
     SimaiChart? currentSimaiChart = null;
     [ObservableProperty]
     double caretTime = 0f;
@@ -195,6 +224,7 @@ public partial class MainWindowViewModel : ViewModelBase
     TrackInfo? songTrackInfo = null;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DisplayTime))]
+    [NotifyPropertyChangedFor(nameof(DisplayTimeSignature))]
     double trackTime = 0f;
     [ObservableProperty]
     private bool isFollowCursor;
@@ -298,6 +328,13 @@ public partial class MainWindowViewModel : ViewModelBase
     void UpdateDiscordRpcEditingPresence()
     {
         const string fallback = "Nothing to do";
+        const int discordMaxLen = 128;
+
+        static string ClampDiscord(string s, int maxLen)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            return s.Length <= maxLen ? s : s[..maxLen];
+        }
 
         if (CurrentSimaiFile is null)
         {
@@ -317,9 +354,9 @@ public partial class MainWindowViewModel : ViewModelBase
             if (string.IsNullOrWhiteSpace(chartLevelText))
                 chartLevelText = "?";
 
-            // Discord activity card uses `Details` (top line) and `State` (second line).
-            _dcRichPresence.Details = $"Editing: {chartTitle}";
-            _dcRichPresence.State = $"{difficultyText} {chartLevelText}";
+            // Discord activity card uses `Details` (top line) and `State` (second line); each field max 128 chars.
+            _dcRichPresence.Details = ClampDiscord($"Editing: {chartTitle}", discordMaxLen);
+            _dcRichPresence.State = ClampDiscord($"{difficultyText} {chartLevelText}", discordMaxLen);
 
             if (_dcRichPresence.Assets is not null)
                 _dcRichPresence.Assets.LargeImageText = _dcRichPresence.State;
@@ -432,6 +469,21 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnCurrentSimaiFileChanged(SimaiFile? value)
     {
         UpdateDiscordRpcEditingPresence();
+        // Co-notify CurrentFumen reads RawCharts[SelectedDifficulty] before ReadSetting() clamps difficulty;
+        // stale index from the previous chart would throw if the new file has fewer difficulties.
+        if (value?.RawCharts is { Length: > 0 } charts &&
+            ((uint)SelectedDifficulty >= (uint)charts.Length))
+            SelectedDifficulty = 0;
+    }
+
+    /// <summary>Clamp difficulty index so RawCharts / Charts access never throws.</summary>
+    private int SafeDifficultyIndex(int rawChartCount)
+    {
+        if (rawChartCount <= 0) return 0;
+        var i = SelectedDifficulty;
+        if (i < 0) return 0;
+        if (i >= rawChartCount) return 0;
+        return i;
     }
 
     partial void OnSelectedDifficultyChanged(int value)
@@ -569,6 +621,18 @@ public partial class MainWindowViewModel : ViewModelBase
         var window = new PlayerSettingsWindow();
         window.DataContext = this;
         await window.ShowDialog(mainWindow.MainWindow);
+    }
+
+    /// <summary>Tools: break one-line measure runs so each <c>{...}</c> timing group starts after a newline.</summary>
+    public void FormatSimaiTimingsOnePerLine(TextEditor editor)
+    {
+        if (editor.SelectionLength > 0)
+        {
+            var s = editor.SelectedText;
+            editor.SelectedText = SimaiTimingLineFormatter.SplitTimingsToNewLines(s);
+        }
+        else
+            editor.Text = SimaiTimingLineFormatter.SplitTimingsToNewLines(editor.Text);
     }
 
     public void MirrorHorizontal(TextEditor editor)

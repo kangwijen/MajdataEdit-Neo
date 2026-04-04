@@ -12,6 +12,17 @@ internal class Majson
     public List<SimaiTimingPoint> timingList = new();
     public string title = "default";
     public float first = 0; // Add offset field
+
+    /// <summary>Angle-bracket time signatures from the chart, in chart seconds (same time base as <see cref="SimaiTimingPoint.time"/>).</summary>
+    public List<TimeSignatureMarkerEntry> timeSignatureMarkers { get; set; } = new();
+}
+
+/// <summary>Serialized with majdata.json for viewers (e.g. MajdataView current-signature display).</summary>
+internal sealed class TimeSignatureMarkerEntry
+{
+    public double time { get; set; }
+    public int numerator { get; set; }
+    public int denominator { get; set; }
 }
 
 internal class SimaiTimingPoint

@@ -75,6 +75,20 @@ class SimaiVisualizerControl : Control
         set { SetAndRaise(SimaiChartProperty, ref _simaiChart, value); }
     }
 
+    public static readonly DirectProperty<SimaiVisualizerControl, string?> FumenTextProperty =
+        AvaloniaProperty.RegisterDirect<SimaiVisualizerControl, string?>(
+            nameof(FumenText),
+            o => o.FumenText,
+            (o, v) => o.FumenText = v,
+            defaultBindingMode: Avalonia.Data.BindingMode.OneWay);
+    private string? _fumenText;
+    /// <summary>Raw chart text for <c>&lt;n/d&gt;</c> time signature markers.</summary>
+    public string? FumenText
+    {
+        get => _fumenText;
+        set => SetAndRaise(FumenTextProperty, ref _fumenText, value);
+    }
+
     public static readonly DirectProperty<SimaiVisualizerControl, float> OffsetProperty =
    AvaloniaProperty.RegisterDirect<SimaiVisualizerControl, float>(
        nameof(Offset),
@@ -163,7 +177,7 @@ class SimaiVisualizerControl : Control
         var glyphs = text.Select(ch => Typeface.Default.GlyphTypeface.GetGlyph(ch)).ToArray();
         _noSkia = new GlyphRun(Typeface.Default.GlyphTypeface, 12, text.AsMemory(), glyphs);
 
-        AffectsRender<SimaiVisualizerControl>(TimeProperty, TrackIfProperty, ZoomLevelProperty, SimaiChartProperty, OffsetProperty, CaretTimeProperty,
+        AffectsRender<SimaiVisualizerControl>(TimeProperty, TrackIfProperty, ZoomLevelProperty, SimaiChartProperty, FumenTextProperty, OffsetProperty, CaretTimeProperty,
             IsLoopEnabledProperty, LoopStartTimeProperty, LoopEndTimeProperty);
     }
     class CustomDrawOp : ICustomDrawOperation
@@ -171,6 +185,7 @@ class SimaiVisualizerControl : Control
         private readonly IImmutableGlyphRunReference? _noSkia;
         private readonly TrackInfo? _trackInfo;
         private readonly SimaiChart? _simaiChart;
+        private readonly string? _fumenText;
         private readonly double _time;
         private readonly double _caretTime;
         private readonly float _zoomLevel;
@@ -182,7 +197,7 @@ class SimaiVisualizerControl : Control
         private static double _lastZoom;
         private readonly bool _isAnimated;
         public CustomDrawOp(Rect bounds, GlyphRun? noSkia,
-            TrackInfo? trackInfo, double time, float zoomLevel, SimaiChart? simaiChart, float offset, double caretTime, bool isAnimated,
+            TrackInfo? trackInfo, double time, float zoomLevel, SimaiChart? simaiChart, string? fumenText, float offset, double caretTime, bool isAnimated,
             bool isLoopEnabled, double? loopStartTime, double? loopEndTime)
         {
             _noSkia = noSkia?.TryCreateImmutableGlyphRunReference();
@@ -190,6 +205,7 @@ class SimaiVisualizerControl : Control
             _time = time;
             _zoomLevel = zoomLevel;
             _simaiChart = simaiChart;
+            _fumenText = fumenText;
             _offset = offset;
             _caretTime = caretTime;
             _isAnimated = isAnimated;
@@ -269,68 +285,66 @@ class SimaiVisualizerControl : Control
 
                 paint.IsAntialias = true;
 
-                //Draw Bpm Lines
+                //Draw Bpm Lines + time-signature-aware beat grid (see TimeSignatureHelper)
                 var lastbpm = -1f;
                 var bpmChangeTimes = new List<double>();
                 var bpmChangeValues = new List<float>();
 
-                //scan to get bpm change time and value
                 foreach (var timing in _simaiChart.CommaTimings)
                 {
                     if (timing.Bpm != lastbpm)
                     {
-                        bpmChangeTimes.Add(timing.Timing+_offset);
+                        bpmChangeTimes.Add(timing.Timing + _offset);
                         bpmChangeValues.Add(timing.Bpm);
                         lastbpm = timing.Bpm;
                     }
                 }
                 bpmChangeTimes.Add(_trackInfo.Length);
 
-                double time = bpmChangeTimes.FirstOrDefault(); //initial offset
-                var signature = 4; // Time signature
-                var currentBeat = 1;
-                double timePerBeat;
                 paint.Color = SKColors.Yellow;
                 paint.StrokeWidth = 1;
                 var strongBeat = new List<double>();
                 var weakBeat = new List<double>();
+                TimeSignatureHelper.GenerateStrongWeakBeatsChartTime(_simaiChart, _fumenText, _trackInfo.Length, strongBeat, weakBeat);
 
                 for (var i = 1; i < bpmChangeTimes.Count; i++)
                 {
-                    if (time - currentTime > deltatime) continue;
-                    var x = ((float)(time / step) - startindex) * linewidth;
-                    canvas.DrawText(bpmChangeValues[i - 1].ToString(),(float)x+3f,10,paint);
+                    var segmentStart = bpmChangeTimes[i - 1];
+                    if (segmentStart - currentTime > deltatime) continue;
+                    var xBpm = ((float)(segmentStart / step) - startindex) * linewidth;
+                    canvas.DrawText(bpmChangeValues[i - 1].ToString(), (float)xBpm + 3f, 10, paint);
+                }
 
-
-                    while (time < bpmChangeTimes[i] - 0.05)
+                using (var sigPaint = new SKPaint
+                {
+                    IsAntialias = true,
+                    Color = SKColors.Yellow,
+                    TextSize = 12
+                })
+                {
+                    foreach (var (ct, n, d) in TimeSignatureHelper.GetSignatureChangePoints(_simaiChart, _fumenText))
                     {
-                        if (currentBeat > signature) currentBeat = 1;
-                        timePerBeat = 60.0 / bpmChangeValues[i - 1];
-
-                        if (currentBeat == 1)
-                            strongBeat.Add(time);
-                        else
-                            weakBeat.Add(time);
-
-                        currentBeat++;
-                        time += timePerBeat;
+                        var displaySig = ct + _offset;
+                        if (displaySig - currentTime > deltatime) continue;
+                        if (currentTime - displaySig > deltatime) continue;
+                        var xSig = ((float)(displaySig / step) - startindex) * linewidth;
+                        canvas.DrawText($"{n}/{d}", (float)xSig + 3f, 24f, sigPaint);
                     }
-
-                    time = bpmChangeTimes[i];
-                    currentBeat = 1;
                 }
 
                 foreach (var btime in strongBeat)
                 {
-                    if (btime - currentTime > deltatime) continue;
-                    var x = ((float)(btime / step) - startindex) * linewidth;
+                    var displayT = btime + _offset;
+                    if (displayT - currentTime > deltatime) continue;
+                    var x = ((float)(displayT / step) - startindex) * linewidth;
                     canvas.DrawLine((float)x, 0, (float)x, (float)height, paint);
                 }
 
                 foreach (var btime in weakBeat)
                 {
-                    if (btime - currentTime > deltatime) continue;
-                    var x = ((float)(btime / step) - startindex) * linewidth;
+                    var displayT = btime + _offset;
+                    if (displayT - currentTime > deltatime) continue;
+                    var x = ((float)(displayT / step) - startindex) * linewidth;
                     canvas.DrawLine((float)x, 0, (float)x, 10, paint);
                 }
 
@@ -338,7 +352,7 @@ class SimaiVisualizerControl : Control
                 paint.Color = SKColors.White;
                 foreach (var note in _simaiChart.CommaTimings)
                 {
-                    time = note.Timing + _offset;
+                    var time = note.Timing + _offset;
                     if (time - currentTime > deltatime) continue;
                     var x = ((float)(time / step) - startindex) * linewidth;
                     canvas.DrawLine((float)x, (float)height -10, (float)x, (float)height, paint);
@@ -352,7 +366,7 @@ class SimaiVisualizerControl : Control
                 // Draw notes
                 foreach (var note in _simaiChart.NoteTimings)
                 {
-                    time = note.Timing + _offset;
+                    var time = note.Timing + _offset;
                     if (time - currentTime > deltatime) continue;
                     var notes = note.Notes;
                     var isEach = notes.Count(o => !o.IsSlideNoHead) > 1;
@@ -473,13 +487,13 @@ class SimaiVisualizerControl : Control
                     }
                 }
 
-                time = _caretTime + _offset;
-                if (time - currentTime <= deltatime)
+                var caretDisplayTime = _caretTime + _offset;
+                if (caretDisplayTime - currentTime <= deltatime)
                 {
                     //Draw ghost cusor
                     paint.Color = SKColors.Orange;
                     paint.Style = SKPaintStyle.Fill;
-                    var x2 = (float)(time / step - startindex) * linewidth;
+                    var x2 = (float)(caretDisplayTime / step - startindex) * linewidth;
                     using var path = new SKPath();
                     path.MoveTo(x2 - 2, 0);
                     path.LineTo(x2 + 2, 0);
@@ -526,7 +540,7 @@ class SimaiVisualizerControl : Control
     public override void Render(DrawingContext context)
     {
         context.Custom(new CustomDrawOp(new Rect(0, 0, Bounds.Width, Bounds.Height), _noSkia!,
-            TrackIf, Time, ZoomLevel, SimaiChart, Offset, CaretTime, IsAnimated,
+            TrackIf, Time, ZoomLevel, SimaiChart, FumenText, Offset, CaretTime, IsAnimated,
             IsLoopEnabled, LoopStartTime, LoopEndTime));
         Dispatcher.UIThread.InvokeAsync(InvalidateVisual, DispatcherPriority.Background);
     }

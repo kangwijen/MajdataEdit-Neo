@@ -115,9 +115,9 @@ public partial class LoopViewModel : ViewModelBase
     /// Updates the chart for beat snapping operations.
     /// </summary>
     /// <param name="chart">The current chart.</param>
-    internal void UpdateChart(SimaiChart? chart)
+    internal void UpdateChart(SimaiChart? chart, string? fumenText = null)
     {
-        _loopController.SetChart(chart);
+        _loopController.SetChart(chart, fumenText);
     }
 
     /// <summary>

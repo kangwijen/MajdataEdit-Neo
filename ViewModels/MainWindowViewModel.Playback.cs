@@ -391,7 +391,7 @@ public partial class MainWindowViewModel
         IsPlaying = true;
         IsPlayControlEnabled = true;
 
-        LoopViewModel.UpdateChart(CurrentSimaiChart);
+        LoopViewModel.UpdateChart(CurrentSimaiChart, CurrentFumen);
 
         if (_audioManager != null)
         {
@@ -725,9 +725,16 @@ public partial class MainWindowViewModel
     {
         var afterBreaks = SkipLeadingLineBreaks(text, rawStart);
         var lineEnd = Math.Min(GetExclusiveEndOfLineAfterOffset(text, afterBreaks), lineEndExclusive);
-        var s = SkipLeadingMeasurePrefix(text, afterBreaks, lineEnd);
-        while (s < lineEnd && text[s] == '{')
+        var s = afterBreaks;
+        while (true)
+        {
+            var before = s;
+            s = SkipLeadingAngleBracketTimeSignature(text, s, lineEnd);
             s = SkipLeadingMeasurePrefix(text, s, lineEnd);
+            if (s == before)
+                break;
+        }
+
         if (s < lineEnd && text[s] == '}')
         {
             s++;
@@ -841,6 +848,36 @@ public partial class MainWindowViewModel
         }
 
         return start;
+    }
+
+    /// <summary>
+    /// Skips a leading angle-bracket time signature token (<c>&lt;4/4&gt;</c>, optional spaces) so highlight follows simai note tokens, not the marker.
+    /// Pattern aligned with <see cref="Models.TimeSignatureHelper"/> markers.
+    /// </summary>
+    static int SkipLeadingAngleBracketTimeSignature(string text, int start, int lineEndExclusive)
+    {
+        if (start >= lineEndExclusive || text[start] != '<')
+            return start;
+
+        var i = start + 1;
+        while (i < lineEndExclusive && char.IsDigit(text[i]))
+            i++;
+        while (i < lineEndExclusive && (text[i] == ' ' || text[i] == '\t'))
+            i++;
+        if (i >= lineEndExclusive || text[i] != '/')
+            return start;
+        i++;
+        while (i < lineEndExclusive && (text[i] == ' ' || text[i] == '\t'))
+            i++;
+        while (i < lineEndExclusive && char.IsDigit(text[i]))
+            i++;
+        if (i >= lineEndExclusive || text[i] != '>')
+            return start;
+
+        var after = i + 1;
+        while (after < lineEndExclusive && (text[after] == ' ' || text[after] == '\t'))
+            after++;
+        return after;
     }
 
     static int TrimLeadingCommasSpaces(string text, int start, int maxExclusive)

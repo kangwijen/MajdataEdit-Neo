@@ -120,6 +120,9 @@
         </MenuItem>
         <MenuItem Header="_Tools">
           <MenuItem Header="BPM Tap" Command="{Binding OpenBpmTapWindow}"/>
+          <MenuItem Header="Format timings (one per line)"
+                    Command="{Binding FormatSimaiTimingsOnePerLine}"
+                    CommandParameter="{Binding #Editor}"/>
           <MenuItem Header="Compress bg.mp4"/>
         </MenuItem>
         <MenuItem Header="_About">
@@ -132,8 +135,20 @@
       </Menu>
 
       <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Grid.RowSpan="6">
-        <Label Height="100" Name="Time" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center"
-               Content="{Binding DisplayTime}" Padding="0 30 0 0 "/>
+        <StackPanel VerticalAlignment="Center" Margin="0,0,0,4">
+          <Label Name="Time" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center"
+                 Content="{Binding DisplayTime}" Padding="0 20 0 0"/>
+          <Border HorizontalAlignment="Center" Margin="0,6,0,2" Padding="14,8"
+                  Background="#22000000" BorderBrush="#35FFFFFF" BorderThickness="1" CornerRadius="6">
+            <TextBlock Text="{Binding DisplayTimeSignature}"
+                       TextAlignment="Center"
+                       FontSize="15"
+                       FontWeight="SemiBold"
+                       Foreground="#B8D4E8"
+                       FontFamily="Cascadia Code,Consolas,Unifont,monospace"
+                       LineHeight="17"/>
+          </Border>
+        </StackPanel>
         <Label VerticalAlignment="Center">Difficulty</Label>
         <ComboBox Name="Difficulty"
                   Width="120" VerticalAlignment="Center"
@@ -263,6 +278,7 @@
                                        Height="100" Grid.Row="5" Grid.ColumnSpan="4"
                                        Time="{Binding TrackTime}" TrackIf="{Binding SongTrackInfo}"
                                        ZoomLevel="{Binding TrackZoomLevel}" SimaiChart="{Binding CurrentSimaiChart}"
+                                       FumenText="{Binding CurrentFumen}"
                                        Offset="{Binding Offset}" CaretTime="{Binding CaretTime}" IsAnimated ="{Binding IsAnimated}"
                                        IsLoopEnabled="{Binding LoopViewModel.IsEnabled}"
                                        LoopStartTime="{Binding LoopViewModel.StartTime}"

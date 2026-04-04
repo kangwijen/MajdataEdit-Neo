@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using MajSimai;
 
@@ -9,6 +10,7 @@ namespace MajdataEdit_Neo.Models;
 
 internal static class ChartSerializer
 {
+    private static readonly Regex AngleBracketTimeSignatureHead = new(@"^<(\d+)\s*/\s*(\d+)>", RegexOptions.Compiled);
     public static Majson ConvertToMajson(SimaiFile simaiFile, int difficulty)
     {
         if (simaiFile == null)
@@ -47,7 +49,9 @@ internal static class ChartSerializer
     {
         // Use the old SimaiProcess.Serialize-like logic to create timing points with raw note content
         // Bake the offset into note times (like the old MajdataEdit-master does)
-        var timingPoints = OldStyleSerialize(rawChart, offset);
+        var sigMarkers = new List<TimeSignatureMarkerEntry>();
+        var timingPoints = OldStyleSerialize(rawChart, offset, sigMarkers);
+        majson.timeSignatureMarkers = sigMarkers;
 
         // Populate noteList for each timing point using the old getNotes() style parsing
         foreach (var timingPoint in timingPoints)
@@ -61,7 +65,8 @@ internal static class ChartSerializer
         }
     }
 
-    private static List<SimaiTimingPoint> OldStyleSerialize(string text, float offset)
+    private static List<SimaiTimingPoint> OldStyleSerialize(string text, float offset,
+        List<TimeSignatureMarkerEntry>? signatureMarkers = null)
     {
         var _notelist = new List<SimaiTimingPoint>();
         try
@@ -152,6 +157,25 @@ internal static class ChartSerializer
                     }
                     curHSpeed = float.Parse(hs_s);
                     continue;
+                }
+
+                if (text[i] == '<' && signatureMarkers != null)
+                {
+                    // Do not use Regex.Match(text, i) with '^': in .NET, '^' still anchors to the start of the full string, not index i.
+                    var tail = Math.Min(48, text.Length - i);
+                    if (tail >= 5)
+                    {
+                        var m = AngleBracketTimeSignatureHead.Match(text.Substring(i, tail));
+                        if (m.Success)
+                        {
+                            signatureMarkers.Add(new TimeSignatureMarkerEntry
+                            {
+                                time = time,
+                                numerator = int.Parse(m.Groups[1].Value),
+                                denominator = int.Parse(m.Groups[2].Value)
+                            });
+                        }
+                    }
                 }
 
                 if (IsNote(text[i])) haveNote = true;
