@@ -28,6 +28,7 @@
 - [x] **Note speed change**: allow changing note speed via UI/setting.
 - [x] **Editor settings**: add persistent editor settings using JSON file.
 - [x] **Keybindings shortcut customization**: configurable shortcuts in `EditorSetting.json`, the **Edit** and **File** menus show each shortcut on the right via `InputGesture`, and the play/stop toolbar buttons still have tooltips.
+- [ ] **Adjustable font size**: adjustable font size via settings.
 
 ## Acknowledgements
 
