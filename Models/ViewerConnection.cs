@@ -75,7 +75,8 @@ internal class ViewerConnection
 
     public async Task<bool> StartPlaybackAsync(string jsonPath, DateTime startAt, float startTime,
         float noteSpeed, float touchSpeed, float audioSpeed, float backgroundCover,
-        EditorComboIndicator comboStatusType, bool smoothSlideAnime, EditorPlayMethod editorPlayMethod)
+        EditorComboIndicator comboStatusType, bool smoothSlideAnime, EditorPlayMethod editorPlayMethod,
+        float currentBpm = 0f)
     {
         var request = new EditRequestjson
         {
@@ -89,7 +90,8 @@ internal class ViewerConnection
             backgroundCover = backgroundCover,
             comboStatusType = comboStatusType,
             smoothSlideAnime = smoothSlideAnime,
-            editorPlayMethod = editorPlayMethod
+            editorPlayMethod = editorPlayMethod,
+            currentBpm = currentBpm
         };
 
         return await SendControlCommandAsync(request);
@@ -97,7 +99,8 @@ internal class ViewerConnection
 
     public async Task<bool> StartOpPlaybackAsync(string jsonPath, DateTime startAt, float startTime,
         float noteSpeed, float touchSpeed, float audioSpeed, float backgroundCover,
-        EditorComboIndicator comboStatusType, bool smoothSlideAnime, EditorPlayMethod editorPlayMethod)
+        EditorComboIndicator comboStatusType, bool smoothSlideAnime, EditorPlayMethod editorPlayMethod,
+        float currentBpm = 0f)
     {
         var request = new EditRequestjson
         {
@@ -111,7 +114,8 @@ internal class ViewerConnection
             backgroundCover = backgroundCover,
             comboStatusType = comboStatusType,
             smoothSlideAnime = smoothSlideAnime,
-            editorPlayMethod = editorPlayMethod
+            editorPlayMethod = editorPlayMethod,
+            currentBpm = currentBpm
         };
 
         return await SendControlCommandAsync(request);
@@ -119,7 +123,8 @@ internal class ViewerConnection
 
     public async Task<bool> StartRecordingAsync(string jsonPath, DateTime startAt, float startTime,
         float noteSpeed, float touchSpeed, float audioSpeed, float backgroundCover,
-        EditorComboIndicator comboStatusType, bool smoothSlideAnime, EditorPlayMethod editorPlayMethod)
+        EditorComboIndicator comboStatusType, bool smoothSlideAnime, EditorPlayMethod editorPlayMethod,
+        float currentBpm = 0f)
     {
         var request = new EditRequestjson
         {
@@ -133,7 +138,8 @@ internal class ViewerConnection
             backgroundCover = backgroundCover,
             comboStatusType = comboStatusType,
             smoothSlideAnime = smoothSlideAnime,
-            editorPlayMethod = editorPlayMethod
+            editorPlayMethod = editorPlayMethod,
+            currentBpm = currentBpm
         };
 
         return await SendControlCommandAsync(request);
@@ -149,14 +155,16 @@ internal class ViewerConnection
         return await SendControlCommandAsync(request);
     }
 
-    public async Task<bool> ContinuePlaybackAsync(DateTime startAt, float startTime, float audioSpeed)
+    public async Task<bool> ContinuePlaybackAsync(DateTime startAt, float startTime, float audioSpeed,
+        float currentBpm = 0f)
     {
         var request = new EditRequestjson
         {
             control = EditorControlMethod.Continue,
             startAt = startAt.Ticks,
             startTime = startTime,
-            audioSpeed = audioSpeed
+            audioSpeed = audioSpeed,
+            currentBpm = currentBpm
         };
 
         return await SendControlCommandAsync(request);

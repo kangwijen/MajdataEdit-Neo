@@ -118,7 +118,8 @@ public partial class MainWindowViewModel
                     _editorSetting.backgroundCover,
                     GetCenterDisplayIndicator(),
                     _editorSetting.SmoothSlideAnime,
-                    GetSelectedPlayMethod());
+                    GetSelectedPlayMethod(),
+                    ChartBpm.GetBpmAtChartTime(majson, playStartTime));
 
                 OnPlayStarted();
             }
@@ -225,7 +226,8 @@ public partial class MainWindowViewModel
                     _editorSetting.backgroundCover,
                     GetCenterDisplayIndicator(),
                     _editorSetting.SmoothSlideAnime,
-                    GetSelectedPlayMethod());
+                    GetSelectedPlayMethod(),
+                    ChartBpm.GetBpmAtChartTime(majson, TrackTime));
 
                 if (!introOk)
                 {
@@ -265,7 +267,8 @@ public partial class MainWindowViewModel
                             _editorSetting.backgroundCover,
                             GetCenterDisplayIndicator(),
                             _editorSetting.SmoothSlideAnime,
-                            GetSelectedPlayMethod());
+                            GetSelectedPlayMethod(),
+                            ChartBpm.GetBpmAtChartTime(majson, playStartTime));
 
                         if (!kickOk)
                         {
@@ -371,7 +374,8 @@ public partial class MainWindowViewModel
                     _editorSetting.backgroundCover,
                     GetCenterDisplayIndicator(),
                     _editorSetting.SmoothSlideAnime,
-                    GetSelectedPlayMethod());
+                    GetSelectedPlayMethod(),
+                    ChartBpm.GetBpmAtChartTime(majson, TrackTime));
 
                 OnPlayStarted();
             }
@@ -580,7 +584,8 @@ public partial class MainWindowViewModel
                     _editorSetting.backgroundCover,
                     GetCenterDisplayIndicator(),
                     _editorSetting.SmoothSlideAnime,
-                    GetSelectedPlayMethod());
+                    GetSelectedPlayMethod(),
+                    ChartBpm.GetBpmAtChartTime(majson, loopStart));
 
                 if (_audioManager != null)
                 {
@@ -724,7 +729,8 @@ public partial class MainWindowViewModel
     static int TrimRawToNoteStart(string text, int rawStart, int lineEndExclusive)
     {
         var afterBreaks = SkipLeadingLineBreaks(text, rawStart);
-        var lineEnd = Math.Min(GetExclusiveEndOfLineAfterOffset(text, afterBreaks), lineEndExclusive);
+        var lineEndFull = GetExclusiveEndOfLineAfterOffset(text, afterBreaks);
+        var lineEnd = Math.Min(lineEndFull, lineEndExclusive);
         var s = afterBreaks;
         while (true)
         {
@@ -741,7 +747,42 @@ public partial class MainWindowViewModel
             s = TrimLeadingCommasSpaces(text, s, lineEnd);
         }
 
+        // MajSimai comma timings use RawTextPosition on the comma; do not skip forward past it (that selects the next cell).
+        if (afterBreaks < lineEndFull && text[afterBreaks] == ',')
+        {
+            var lineStart = GetLineStartOffset(text, afterBreaks);
+            var j = afterBreaks - 1;
+            while (j >= lineStart && (text[j] == ' ' || text[j] == '\t'))
+                j--;
+            if (j >= lineStart)
+            {
+                var k = j;
+                while (k > lineStart && text[k - 1] != ',' && text[k - 1] != '}')
+                    k--;
+                s = k;
+            }
+        }
+
         return TrimLeadingCommasSpaces(text, s, lineEnd);
+    }
+
+    /// <summary>Index of first character on the same line as <paramref name="offset"/>.</summary>
+    static int GetLineStartOffset(string text, int offset)
+    {
+        if (string.IsNullOrEmpty(text) || offset <= 0)
+            return 0;
+        if (offset > text.Length)
+            offset = text.Length;
+        var i = offset;
+        while (i > 0)
+        {
+            var c = text[i - 1];
+            if (c == '\n' || c == '\r')
+                break;
+            i--;
+        }
+
+        return i;
     }
 
     /// <summary>Exclusive end of the token on this line: stops before the first comma or line break (does not cross lines).</summary>

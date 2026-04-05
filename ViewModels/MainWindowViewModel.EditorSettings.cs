@@ -263,7 +263,8 @@ public partial class MainWindowViewModel
                 _editorSetting.backgroundCover, // backgroundCover
                 GetCenterDisplayIndicator(), // comboStatusType
                 _editorSetting.SmoothSlideAnime, // smoothSlideAnime
-                GetSelectedPlayMethod()); // editorPlayMethod
+                GetSelectedPlayMethod(), // editorPlayMethod
+                ChartBpm.GetBpmAtChartTime(majson, TrackTime));
 
             OnPlayStarted();
         }

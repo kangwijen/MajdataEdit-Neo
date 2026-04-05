@@ -90,6 +90,8 @@ internal class EditRequestjson
     public float startTime;
     public float touchSpeed;
     public bool smoothSlideAnime;
+    /// <summary>BPM at <see cref="startTime"/> from the editor chart (for viewer HUD).</summary>
+    public float currentBpm;
 }
 
 public enum EditorPlayMethod
